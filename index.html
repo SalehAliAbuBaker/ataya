@@ -8,6 +8,7 @@
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
         body { font-family: system-ui, -apple-system, sans-serif; background-color: #f8fafc; }
         .hidden-section { display: none; }
@@ -16,6 +17,34 @@
         @media print {
             nav, header, .no-print { display: none !important; }
             .print-area { display: block !important; }
+        }
+        /* ===== كشف العطية (عرض + طباعة A4 + PDF) ===== */
+        .stmt-sheet { font-family: 'Tajawal','Segoe UI',Tahoma,sans-serif; direction: rtl; width: 718px; background: #fff; color: #0f172a; font-size: 13px; line-height: 1.6; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .stmt-head { text-align: center; border-bottom: 2px solid #1e293b; padding-bottom: 8px; margin-bottom: 12px; }
+        .stmt-head .org { font-size: 12px; color: #475569; }
+        .stmt-head h1 { font-size: 22px; font-weight: 700; margin: 2px 0 0; }
+        .stmt-meta { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
+        .stmt-meta th { width: 17%; background: #f1f5f9; text-align: right; font-weight: 700; }
+        .stmt-meta th, .stmt-meta td { border: 1px solid #94a3b8; padding: 5px 8px; }
+        .stmt-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+        .stmt-table th { background: #e2e8f0; border: 1px solid #64748b; padding: 6px 5px; font-weight: 700; text-align: center; }
+        .stmt-table td { border: 1px solid #94a3b8; padding: 5px 6px; }
+        .stmt-table td.c { text-align: center; }
+        .stmt-table thead { display: table-header-group; }
+        .stmt-table tr { break-inside: avoid; page-break-inside: avoid; }
+        .stmt-table tfoot td { background: #f1f5f9; font-weight: 700; border-top: 2px solid #475569; }
+        .stmt-sign { display: flex; gap: 20px; margin-top: 26px; break-inside: avoid; page-break-inside: avoid; }
+        .stmt-sign > div { flex: 1; border: 1px solid #94a3b8; padding: 10px 12px; min-height: 96px; }
+        .stmt-sign b { display: block; margin-bottom: 10px; font-size: 13px; }
+        .stmt-sign p { margin: 12px 0 0; font-size: 12px; color: #334155; }
+        .stmt-sign .ln { display: inline-block; width: 62%; border-bottom: 1px dotted #475569; vertical-align: bottom; }
+        @page { size: A4 portrait; margin: 12mm; }
+        @media print {
+            body.printing-statement > *:not(#statementViewer) { display: none !important; }
+            body.printing-statement #statementViewer { position: static !important; display: block !important; overflow: visible !important; background: #fff !important; height: auto !important; }
+            body.printing-statement #statementScale { padding: 0 !important; display: block !important; }
+            body.printing-statement #statementSheet { zoom: 1 !important; box-shadow: none !important; }
+            body.printing-statement .stmt-sheet { width: 100% !important; }
         }
     </style>
     <script>
@@ -57,11 +86,12 @@
     <main class="p-3 max-w-4xl mx-auto">
         
         <!-- Navigation Menu -->
-        <nav class="grid grid-cols-4 gap-2 mb-4 no-print text-xs md:text-sm font-medium">
+        <nav class="grid grid-cols-5 gap-2 mb-4 no-print text-xs md:text-sm font-medium">
             <button onclick="showSection('beneficiariesSection')" id="nav-beneficiariesSection" class="nav-btn bg-white py-2.5 px-1 rounded-lg border border-slate-200 text-slate-700 shadow-sm text-center">المستفيدون</button>
             <button onclick="showSection('grantsSection')" id="nav-grantsSection" class="nav-btn bg-white py-2.5 px-1 rounded-lg border border-slate-200 text-slate-700 shadow-sm text-center">العطايا</button>
             <button onclick="showSection('distributeSection')" id="nav-distributeSection" class="nav-btn bg-white py-2.5 px-1 rounded-lg border border-slate-200 text-slate-700 shadow-sm text-center">الصرف الميداني</button>
             <button onclick="showSection('reportsSection')" id="nav-reportsSection" class="nav-btn bg-white py-2.5 px-1 rounded-lg border border-slate-200 text-slate-700 shadow-sm text-center">التقارير</button>
+            <button onclick="showSection('statementsSection')" id="nav-statementsSection" class="nav-btn bg-white py-2.5 px-1 rounded-lg border border-slate-200 text-slate-700 shadow-sm text-center">الكشوفات</button>
         </nav>
 
         <!-- نافذة النسخ الاحتياطي -->
@@ -195,9 +225,17 @@
                         <label class="block text-xs font-semibold text-slate-600 mb-1">التاريخ *</label>
                         <input type="date" id="grantDate" onclick="try{this.showPicker()}catch(e){}" class="w-full p-2 border border-slate-300 rounded-lg text-sm bg-white cursor-pointer">
                     </div>
-                    <div class="md:col-span-2">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">رقم المستند (يُولَّد تلقائياً إن تُرك فارغاً)</label>
+                        <input type="text" id="grantDocNo" placeholder="مثال: ع-2026-001" dir="ltr" class="w-full p-2 border border-slate-300 rounded-lg text-sm">
+                    </div>
+                    <div>
                         <label class="block text-xs font-semibold text-slate-600 mb-1">الاستحقاق الافتراضي (سلة واحدة أو مبلغ افتراضي)</label>
                         <input type="number" id="grantDefaultQuota" value="1" min="1" class="w-full p-2 border border-slate-300 rounded-lg text-sm">
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">تفاصيل العطية</label>
+                        <textarea id="grantDetails" rows="2" placeholder="وصف مختصر، مكوّنات السلة، ملاحظات..." class="w-full p-2 border border-slate-300 rounded-lg text-sm"></textarea>
                     </div>
                 </div>
                 <button onclick="saveGrant()" id="grantSubmitBtn" class="w-full bg-indigo-600 text-white font-semibold py-2.5 rounded-lg hover:bg-indigo-700 transition text-sm">حفظ العطية</button>
@@ -354,11 +392,58 @@
                         </thead>
                         <tbody id="logsTableBody" class="divide-y divide-slate-100"></tbody>
                     </table>
+                    <div class="stmt-sign"><div><b>1. إعداد المختص:</b><p>الاسم: <i class="ln"></i></p><p>التوقيع: <i class="ln"></i></p></div><div><b>2. اعتمد من:</b><p>الاسم: <i class="ln"></i></p><p>التوقيع: <i class="ln"></i></p></div></div>
                 </div>
             </div>
         </section>
 
+        <!-- ================= 5. كشوفات العطايا (تجميعي) ================= -->
+        <section id="statementsSection" class="hidden-section">
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                <h2 class="text-base font-bold mb-1 text-indigo-700">كشوفات العطايا</h2>
+                <p class="text-[11px] text-slate-500 mb-3">كشف تجميعي لكل عطية: قائمة المستفيدين وإجمالي الكميات، مع الطباعة وPDF والمشاركة.</p>
+                <div id="statementsList" class="space-y-2"></div>
+            </div>
+        </section>
+
     </main>
+
+    <!-- عارض الكشف -->
+    <div id="statementViewer" class="hidden fixed inset-0 z-50 bg-slate-200 overflow-auto">
+        <div class="no-print sticky top-0 z-10 bg-white border-b border-slate-300 p-2 shadow">
+            <div class="grid grid-cols-4 gap-1.5 text-[11px] font-semibold max-w-3xl mx-auto">
+                <button onclick="printStatement()" class="bg-slate-800 text-white py-2 rounded-lg">🖨️ طباعة</button>
+                <button onclick="downloadStatementPDF()" class="bg-rose-600 text-white py-2 rounded-lg">📄 تنزيل PDF</button>
+                <button onclick="shareStatementPDF()" class="bg-emerald-600 text-white py-2 rounded-lg">📤 مشاركة PDF</button>
+                <button onclick="copyStatementText()" class="bg-indigo-600 text-white py-2 rounded-lg">📋 نسخ نص</button>
+                <button onclick="whatsappStatement()" class="bg-teal-600 text-white py-2 rounded-lg">💬 واتساب</button>
+                <button onclick="askDeleteStatement()" class="bg-white border border-rose-300 text-rose-600 py-2 rounded-lg">🗑️ حذف الكشف</button>
+                <button onclick="closeStatement()" class="col-span-2 bg-slate-100 border border-slate-300 text-slate-700 py-2 rounded-lg">✕ إغلاق</button>
+            </div>
+            <p id="stmtBusy" class="hidden text-center text-[11px] text-indigo-700 mt-1">جارٍ تجهيز الملف...</p>
+        </div>
+        <div id="statementScale" class="p-2 flex justify-center">
+            <div id="statementSheet" class="bg-white shadow"></div>
+        </div>
+    </div>
+
+    <!-- نافذة تأكيد حذف الكشف -->
+    <div id="deleteStatementModal" class="hidden fixed inset-0 bg-slate-900/60 flex items-center justify-center p-4" style="z-index:70">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-5 shadow-2xl border border-rose-200">
+            <h3 class="text-base font-bold text-rose-700 mb-2">⚠️ حذف نهائي للعطية</h3>
+            <p id="delStmtInfo" class="text-xs text-slate-700 leading-6 bg-rose-50 border border-rose-200 rounded-lg p-2.5 mb-3"></p>
+            <p class="text-[11px] text-slate-500 mb-3">لا يمكن التراجع عن هذا الإجراء. يُنصح بأخذ نسخة احتياطية أو تصدير PDF قبل الحذف.</p>
+            <label class="flex items-center gap-2 text-xs mb-4 cursor-pointer">
+                <input type="checkbox" id="delStmtAck" onchange="document.getElementById('delStmtBtn').disabled = !this.checked" class="w-4 h-4">
+                أفهم أن الحذف نهائي
+            </label>
+            <div class="flex gap-2">
+                <button onclick="closeDeleteStatement()" class="flex-1 bg-slate-100 border border-slate-300 text-slate-700 py-2 rounded-lg text-sm font-semibold">إلغاء</button>
+                <button id="delStmtBtn" onclick="confirmDeleteStatement()" disabled class="flex-1 bg-rose-600 text-white py-2 rounded-lg text-sm font-semibold disabled:opacity-40">حذف نهائي</button>
+            </div>
+        </div>
+    </div>
+
 
     <!-- Firebase: Auth + Realtime Database (تحديثات جزئية لكل سجل) -->
     <script type="module">
@@ -446,6 +531,8 @@
             updateCategoryDropdowns();
             if (document.getElementById('distributeSection').classList.contains('active-section')) loadDistributionList();
             if (document.getElementById('reportsSection').classList.contains('active-section')) renderFilteredLogs();
+            if (document.getElementById('statementsSection').classList.contains('active-section')) renderStatementsList();
+            if (!document.getElementById('statementViewer').classList.contains('hidden')) refreshStatement();
         }
 
         let started = false;
@@ -553,6 +640,7 @@
 
             if (sectionId === 'beneficiariesSection') renderBeneficiaries();
             if (sectionId === 'grantsSection') renderGrants();
+            if (sectionId === 'statementsSection') renderStatementsList();
             if (sectionId === 'distributeSection') initDistributeSection();
             if (sectionId === 'reportsSection') initReportsSection();
         }
@@ -895,17 +983,19 @@
             const donor = document.getElementById('grantDonor').value.trim() || 'فاعل خير';
             const date = document.getElementById('grantDate').value;
             const defaultQuota = document.getElementById('grantDefaultQuota').value || 1;
+            const details = document.getElementById('grantDetails').value.trim();
+            const typedDocNo = document.getElementById('grantDocNo').value.trim();
 
             if (!name || !date) return alert('يرجى تحديد مسمى العطية واختيار التاريخ.');
 
             if (editId) {
                 const index = grants.findIndex(g => g.id == editId);
                 if (index !== -1) {
-                    grants[index] = { ...grants[index], name, donor, date, defaultQuota };
+                    grants[index] = { ...grants[index], name, donor, date, defaultQuota, details, docNo: typedDocNo || grants[index].docNo || nextDocNo(date) };
                     alert('تم تحديث بيانات العطية بنجاح.');
                 }
             } else {
-                grants.unshift({ id: Date.now(), name, donor, date, defaultQuota });
+                grants.unshift({ id: Date.now(), name, donor, date, defaultQuota, details, docNo: typedDocNo || nextDocNo(date) });
                 alert('تم حفظ العطية.');
             }
 
@@ -923,6 +1013,8 @@
             document.getElementById('grantDonor').value = g.donor;
             document.getElementById('grantDate').value = g.date;
             document.getElementById('grantDefaultQuota').value = g.defaultQuota;
+            document.getElementById('grantDetails').value = g.details || '';
+            document.getElementById('grantDocNo').value = g.docNo || '';
 
             document.getElementById('grantFormTitle').innerText = 'تعديل بيانات العطية';
             document.getElementById('grantSubmitBtn').innerText = 'تحديث العطية';
@@ -938,6 +1030,8 @@
             document.getElementById('grantDonor').value = '';
             document.getElementById('grantDate').value = '';
             document.getElementById('grantDefaultQuota').value = 1;
+            document.getElementById('grantDetails').value = '';
+            document.getElementById('grantDocNo').value = '';
             document.getElementById('grantFormTitle').innerText = 'تسجيل عطية جديدة';
             document.getElementById('grantSubmitBtn').innerText = 'حفظ العطية';
             document.getElementById('grantSubmitBtn').classList.replace('bg-amber-600', 'bg-indigo-600');
@@ -961,7 +1055,7 @@
                 <div class="p-3 border border-slate-200 rounded-lg flex justify-between items-center text-xs">
                     <div>
                         <p class="font-bold text-slate-800 text-sm">${g.name}</p>
-                        <p class="text-slate-500 mt-1">المانح: ${g.donor} | التاريخ: ${g.date}</p>
+                        <p class="text-slate-500 mt-1">المانح: ${g.donor} | التاريخ: ${g.date}${g.docNo ? ` | رقم المستند: <bdi>${g.docNo}</bdi>` : ''}</p>
                     </div>
                     <div class="flex items-center gap-2">
                         <span class="bg-indigo-50 text-indigo-700 px-2 py-1 rounded font-semibold">افتراضي: ${g.defaultQuota}</span>
@@ -1330,7 +1424,8 @@
 
             msg += `--------------------------------\n`;
             msg += `👥 إجمالي المستفيدين: ${currentFilteredLogs.length}\n`;
-            msg += `📦 إجمالي الكميات/المبالغ: ${totalAmount}\n`;
+            msg += `📦 إجمالي الكميات/المبالغ: ${totalAmount}\n\n`;
+            msg += `✍️ 1. إعداد المختص: ..............\n✍️ 2. اعتمد من: ..............`;
 
             const url = `whatsapp://send?text=${encodeURIComponent(msg)}`;
             window.location.href = url;
@@ -1350,6 +1445,310 @@
                 jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
             };
             html2pdf().set(opt).from(element).save();
+        }
+
+        // ================= كشوفات العطايا (الكشف التجميعي) =================
+        const escHtml = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        const fmtNum = n => Number(Number(n || 0).toFixed(2)).toLocaleString('en-US');
+        let currentStatementId = null;
+        let pendingDeleteGrantId = null;
+
+        // رقم مستند تلقائي بصيغة: ع-2026-001 (يتسلسل لكل سنة)
+        function nextDocNo(dateStr) {
+            const y = (dateStr || '').slice(0, 4) || String(new Date().getFullYear());
+            const prefix = `ع-${y}-`;
+            let max = 0;
+            grants.forEach(g => {
+                if (g.docNo && g.docNo.startsWith(prefix)) max = Math.max(max, parseInt(g.docNo.slice(prefix.length), 10) || 0);
+            });
+            return prefix + String(max + 1).padStart(3, '0');
+        }
+
+        // إعطاء رقم للعطايا القديمة التي لا تحمل رقماً (مرة واحدة)
+        function ensureDocNos() {
+            let changed = false;
+            [...grants].sort((a, b) => Number(a.id) - Number(b.id)).forEach(g => {
+                if (!g.docNo) { g.docNo = nextDocNo(g.date); changed = true; }
+            });
+            if (changed) syncToFirebase();
+        }
+
+        function buildStatementData(grantId) {
+            const grant = grants.find(g => g.id == grantId);
+            if (!grant) return null;
+            const byBen = new Map();
+            distributionLogs.filter(l => l.grantId == grantId).forEach(l => {
+                const k = String(l.beneficiaryId);
+                if (!byBen.has(k)) byBen.set(k, { ben: beneficiaries.find(b => b.id == l.beneficiaryId) || { name: '(مستفيد محذوف)' }, amount: 0 });
+                byBen.get(k).amount += Number(l.amount) || 0;
+            });
+            const rows = [...byBen.values()].sort((a, b) => String(a.ben.name).localeCompare(String(b.ben.name), 'ar'));
+            return {
+                grant, rows,
+                total: rows.reduce((s, r) => s + r.amount, 0),
+                count: rows.length,
+                issued: new Date().toISOString().slice(0, 10)
+            };
+        }
+
+        // خانتا التوقيع (تُستخدم في كل الكشوفات)
+        function signatureBlockHTML() {
+            return `<div class="stmt-sign">
+                <div><b>1. إعداد المختص:</b><p>الاسم: <i class="ln"></i></p><p>التوقيع: <i class="ln"></i></p></div>
+                <div><b>2. اعتمد من:</b><p>الاسم: <i class="ln"></i></p><p>التوقيع: <i class="ln"></i></p></div>
+            </div>`;
+        }
+
+        function buildStatementHTML(d) {
+            const g = d.grant;
+            const rows = d.rows.length ? d.rows.map((r, i) => `
+                <tr>
+                    <td class="c">${i + 1}</td>
+                    <td>${escHtml(r.ben.name)}</td>
+                    <td>${escHtml(r.ben.area || '-')}</td>
+                    <td class="c">${escHtml(r.ben.familyCount ?? '-')}</td>
+                    <td>${escHtml(r.ben.category || '-')}</td>
+                    <td class="c"><b>${fmtNum(r.amount)}</b></td>
+                </tr>`).join('')
+                : `<tr><td colspan="6" class="c" style="padding:18px;color:#64748b">لم تُصرف هذه العطية لأي مستفيد بعد.</td></tr>`;
+
+            return `<div class="stmt-sheet">
+                <div class="stmt-head">
+                    <div class="org">سجل العطايا والمستفيدين</div>
+                    <h1>كشف صرف عطية</h1>
+                </div>
+                <table class="stmt-meta">
+                    <tr><th>رقم المستند</th><td><bdi>${escHtml(g.docNo || '-')}</bdi></td><th>تاريخ العطية</th><td>${escHtml(g.date)}</td></tr>
+                    <tr><th>اسم العطية</th><td>${escHtml(g.name)}</td><th>المانح / الممول</th><td>${escHtml(g.donor || '-')}</td></tr>
+                    <tr><th>التفاصيل</th><td colspan="3">${g.details ? escHtml(g.details).replace(/\n/g, '<br>') : '-'}</td></tr>
+                    <tr><th>عدد المستفيدين</th><td>${d.count}</td><th>تاريخ إصدار الكشف</th><td>${d.issued}</td></tr>
+                </table>
+                <table class="stmt-table">
+                    <thead><tr>
+                        <th style="width:6%">م</th><th style="width:32%">اسم المستفيد</th><th style="width:20%">المنطقة</th>
+                        <th style="width:12%">عدد الأفراد</th><th style="width:16%">الفئة</th><th style="width:14%">الكمية / المبلغ</th>
+                    </tr></thead>
+                    <tbody>${rows}</tbody>
+                    <tfoot><tr>
+                        <td colspan="2">إجمالي عدد المستفيدين: ${d.count}</td>
+                        <td colspan="3" style="text-align:left">إجمالي الكميات / المبالغ</td>
+                        <td class="c">${fmtNum(d.total)}</td>
+                    </tr></tfoot>
+                </table>
+                ${signatureBlockHTML()}
+            </div>`;
+        }
+
+        function buildStatementText(d) {
+            const g = d.grant;
+            let t = `📋 *كشف صرف عطية: ${g.name}*\n`;
+            t += `🔖 رقم المستند: ${g.docNo || '-'}\n📅 التاريخ: ${g.date}\n🏷️ المانح: ${g.donor || '-'}\n`;
+            if (g.details) t += `📝 التفاصيل: ${g.details}\n`;
+            t += `--------------------------------\n`;
+            d.rows.forEach((r, i) => {
+                t += `${i + 1}. *${r.ben.name}*\n   ${r.ben.area || '-'} | أسرة: ${r.ben.familyCount ?? '-'} | ${r.ben.category || '-'} | الكمية: ${fmtNum(r.amount)}\n`;
+            });
+            t += `--------------------------------\n`;
+            t += `👥 إجمالي المستفيدين: ${d.count}\n📦 إجمالي الكميات/المبالغ: ${fmtNum(d.total)}\n\n`;
+            t += `✍️ 1. إعداد المختص: ..............\n✍️ 2. اعتمد من: ..............`;
+            return t;
+        }
+
+        // ---------- القائمة ----------
+        function renderStatementsList() {
+            ensureDocNos();
+            const list = document.getElementById('statementsList');
+            if (grants.length === 0) {
+                list.innerHTML = `<p class="text-center text-xs text-slate-400 py-6">لا توجد عطايا مسجلة بعد.</p>`;
+                return;
+            }
+            list.innerHTML = grants.map(g => {
+                const d = buildStatementData(g.id);
+                return `
+                <div class="p-3 border border-slate-200 rounded-lg">
+                    <div class="flex justify-between items-start gap-2">
+                        <div>
+                            <p class="font-bold text-sm text-slate-800">${escHtml(g.name)}</p>
+                            <p class="text-[11px] text-slate-500 mt-0.5">رقم المستند: <bdi>${escHtml(g.docNo || '-')}</bdi> | التاريخ: ${escHtml(g.date)}</p>
+                        </div>
+                        <div class="text-[11px] text-slate-600 shrink-0 text-left leading-5">
+                            <div>👥 ${d.count}</div><div>📦 ${fmtNum(d.total)}</div>
+                        </div>
+                    </div>
+                    <div class="flex gap-2 mt-2">
+                        <button onclick="openStatement('${g.id}')" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-1.5 rounded-lg text-xs font-semibold">عرض الكشف</button>
+                        <button onclick="askDeleteStatement('${g.id}')" class="px-3 border border-rose-300 text-rose-600 hover:bg-rose-50 rounded-lg text-xs">حذف</button>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        // ---------- العارض ----------
+        function openStatement(id) {
+            ensureDocNos();
+            currentStatementId = id;
+            refreshStatement();
+            const v = document.getElementById('statementViewer');
+            v.classList.remove('hidden');
+            v.scrollTop = 0;
+            document.body.style.overflow = 'hidden';
+        }
+
+        function refreshStatement() {
+            const d = buildStatementData(currentStatementId);
+            if (!d) return closeStatement();
+            const host = document.getElementById('statementSheet');
+            host.innerHTML = buildStatementHTML(d);
+            const sc = Math.min(1, (window.innerWidth - 16) / 718);
+            host.style.zoom = sc < 1 ? sc : '';
+        }
+
+        function closeStatement() {
+            document.getElementById('statementViewer').classList.add('hidden');
+            document.body.style.overflow = '';
+            currentStatementId = null;
+        }
+
+        // ---------- الطباعة ----------
+        async function printStatement() {
+            try { await document.fonts.ready; } catch (e) {}
+            document.body.classList.add('printing-statement');
+            const cleanup = () => document.body.classList.remove('printing-statement');
+            window.addEventListener('afterprint', cleanup, { once: true });
+            window.print();
+        }
+
+        // ---------- PDF ----------
+        async function makeStatementPdf() {
+            const d = buildStatementData(currentStatementId);
+            if (!d) throw new Error('العطية غير موجودة');
+            try { await document.fonts.load('400 13px Tajawal'); await document.fonts.load('700 13px Tajawal'); } catch (e) {}
+
+            const stage = document.createElement('div');
+            stage.style.cssText = 'position:fixed;left:-10000px;top:0;width:718px;background:#fff;';
+            stage.innerHTML = buildStatementHTML(d);
+            document.body.appendChild(stage);
+
+            const fileName = `كشف_${d.grant.docNo || 'عطية'}_${d.grant.name}.pdf`.replace(/[\\/:*?"<>|\s]+/g, '_');
+            const opt = {
+                margin: [10, 10, 10, 10],
+                filename: fileName,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2, useCORS: true },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+                pagebreak: { mode: ['css', 'legacy'], avoid: ['tr', '.stmt-sign'] }
+            };
+            try {
+                const blob = await html2pdf().set(opt).from(stage.firstElementChild).outputPdf('blob');
+                return { blob, fileName };
+            } finally {
+                stage.remove();
+            }
+        }
+
+        async function withBusy(fn) {
+            const el = document.getElementById('stmtBusy');
+            el.classList.remove('hidden');
+            try { await fn(); }
+            catch (err) { console.error(err); alert('تعذر إنشاء ملف PDF.'); }
+            finally { el.classList.add('hidden'); }
+        }
+
+        function downloadStatementPDF() {
+            return withBusy(async () => {
+                const { blob, fileName } = await makeStatementPdf();
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = fileName;
+                document.body.appendChild(a);
+                a.click();
+                setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+            });
+        }
+
+        function shareStatementPDF() {
+            return withBusy(async () => {
+                const { blob, fileName } = await makeStatementPdf();
+                const file = new File([blob], fileName, { type: 'application/pdf' });
+                if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                    try {
+                        await navigator.share({ files: [file], title: fileName.replace('.pdf', '') });
+                        return;
+                    } catch (e) { if (e.name === 'AbortError') return; }
+                }
+                // المتصفح لا يدعم مشاركة الملفات: ننزّل الملف ليرسله المستخدم يدوياً
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = fileName;
+                document.body.appendChild(a);
+                a.click();
+                setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+                alert('هذا المتصفح لا يدعم المشاركة المباشرة، فتم تنزيل الملف لإرساله يدوياً.');
+            });
+        }
+
+        // ---------- النص / واتساب ----------
+        async function copyText(t) {
+            try { await navigator.clipboard.writeText(t); return true; }
+            catch (e) {
+                const ta = document.createElement('textarea');
+                ta.value = t; ta.style.cssText = 'position:fixed;opacity:0';
+                document.body.appendChild(ta); ta.select();
+                let ok = false;
+                try { ok = document.execCommand('copy'); } catch (_) {}
+                ta.remove();
+                return ok;
+            }
+        }
+
+        async function copyStatementText() {
+            const d = buildStatementData(currentStatementId);
+            if (!d) return;
+            alert(await copyText(buildStatementText(d)) ? 'تم نسخ الكشف كنص.' : 'تعذر النسخ، جرّب متصفحاً آخر.');
+        }
+
+        function whatsappStatement() {
+            const d = buildStatementData(currentStatementId);
+            if (!d) return;
+            const msg = buildStatementText(d);
+            if (msg.length > 3500) {
+                const p = copyText(msg);
+                window.open('https://api.whatsapp.com/send', '_blank');
+                p.then(() => alert('الكشف طويل، فتم نسخه. الصقه في المحادثة، أو استخدم "مشاركة PDF".'));
+                return;
+            }
+            window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`, '_blank');
+        }
+
+        // ---------- الحذف العام ----------
+        function askDeleteStatement(id) {
+            pendingDeleteGrantId = id || currentStatementId;
+            const d = buildStatementData(pendingDeleteGrantId);
+            if (!d) return;
+            const records = distributionLogs.filter(l => l.grantId == pendingDeleteGrantId).length;
+            document.getElementById('delStmtInfo').innerHTML =
+                `<b>${escHtml(d.grant.name)}</b> (<bdi>${escHtml(d.grant.docNo || '-')}</bdi>)<br>
+                 سيُحذف: العطية + <b>${records}</b> حركة صرف لـ <b>${d.count}</b> مستفيد (إجمالي ${fmtNum(d.total)}).`;
+            document.getElementById('delStmtAck').checked = false;
+            document.getElementById('delStmtBtn').disabled = true;
+            document.getElementById('deleteStatementModal').classList.remove('hidden');
+        }
+
+        function closeDeleteStatement() {
+            document.getElementById('deleteStatementModal').classList.add('hidden');
+            pendingDeleteGrantId = null;
+        }
+
+        async function confirmDeleteStatement() {
+            const id = pendingDeleteGrantId;
+            if (!id) return;
+            grants = grants.filter(g => g.id != id);
+            distributionLogs = distributionLogs.filter(l => l.grantId != id);
+            closeDeleteStatement();
+            closeStatement();
+            renderStatementsList();
+            await syncToFirebase();
+            alert('تم حذف العطية وكشفها وجميع حركات صرفها.');
         }
 
         function exportToExcel() {
