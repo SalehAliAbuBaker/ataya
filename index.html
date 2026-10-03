@@ -18,27 +18,45 @@
             .print-area { display: block !important; }
         }
     </style>
+    <script>
+        // التحقق المباشر قبل تحميل باقي العناصر
+        const activeUser = sessionStorage.getItem('current_user') || localStorage.getItem('last_active_user');
+        if (!activeUser) {
+            window.location.replace('login.html');
+        }
+    </script>
 </head>
 <body class="bg-slate-50 min-h-screen text-slate-800 pb-20">
 
     <!-- Header -->
-    <header class="bg-indigo-700 text-white p-4 shadow-md sticky top-0 z-20">
-        <div class="max-w-3xl mx-auto flex justify-between items-center">
+    <header class="bg-indigo-700 text-white p-3 shadow-md sticky top-0 z-20">
+        <div class="max-w-4xl mx-auto flex flex-wrap justify-between items-center gap-2">
             <div class="flex items-center gap-2">
-                <h1 class="text-lg font-bold">سجل العطايا والمستفيدين</h1>
+                <h1 class="text-base md:text-lg font-bold">سجل العطايا والمستفيدين</h1>
                 <span id="cloudStatusBadge" class="text-[10px] bg-indigo-900/70 border border-indigo-400/40 px-2 py-0.5 rounded-full flex items-center gap-1">
                     <span class="inline-block w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span> جاري المزامنة...
                 </span>
             </div>
-            <div class="flex items-center gap-2">
+            
+            <div class="flex items-center gap-2 text-xs">
+                <!-- شارة المستخدم الحالي -->
+                <div class="bg-indigo-800/80 px-2.5 py-1 rounded-lg border border-indigo-500/40 flex items-center gap-1 text-[11px]">
+                    <span>👤</span>
+                    <span id="displayUserName" class="font-bold text-amber-200"></span>
+                </div>
+
                 <button onclick="openBackupModal()" class="text-xs bg-indigo-800 hover:bg-indigo-900 px-2.5 py-1.5 rounded-lg border border-indigo-400 flex items-center gap-1 shadow-sm transition">
-                    ☁️ النسخ الاحتياطي
+                    ☁️ النسخ
+                </button>
+
+                <button onclick="logoutUser()" title="تسجيل الخروج" class="text-xs bg-rose-600 hover:bg-rose-700 px-2 py-1.5 rounded-lg border border-rose-400 flex items-center gap-1 shadow-sm transition">
+                    خروج 🚪
                 </button>
             </div>
         </div>
     </header>
 
-    <main class="p-3 max-w-3xl mx-auto">
+    <main class="p-3 max-w-4xl mx-auto">
         
         <!-- Navigation Menu -->
         <nav class="grid grid-cols-4 gap-2 mb-4 no-print text-xs md:text-sm font-medium">
@@ -48,7 +66,7 @@
             <button onclick="showSection('reportsSection')" id="nav-reportsSection" class="nav-btn bg-white py-2.5 px-1 rounded-lg border border-slate-200 text-slate-700 shadow-sm text-center">التقارير</button>
         </nav>
 
-        <!-- نافذة منبثقة للنسخ الاحتياطي واسترجاع البيانات عبر Google Drive -->
+        <!-- نافذة النسخ الاحتياطي -->
         <div id="backupModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 hidden">
             <div class="bg-white rounded-2xl max-w-md w-full p-5 shadow-2xl border border-slate-100">
                 <div class="flex justify-between items-center mb-3 border-b border-slate-100 pb-2">
@@ -59,27 +77,24 @@
                 </div>
 
                 <p class="text-xs text-slate-600 mb-4 leading-relaxed">
-                    بياناتك الآن متزامنة تلقائياً مع <b>Firebase</b>، ويمكنك أيضاً أخذ نسخة JSON أو حفظها في Google Drive كإجراء احترازي إضافي.
+                    البيانات متصلة بـ <b>Firebase</b> ويتم حفظها تلقائياً. يمكنك أيضاً تنزيل ملف احتياطي يدوي أو رفعه إلى Google Drive.
                 </p>
 
                 <div class="space-y-3">
                     <div class="p-3 bg-indigo-50 border border-indigo-200 rounded-xl">
                         <span class="block font-bold text-xs text-indigo-900 mb-1">1. تصدير وحفظ نسخة جديدة:</span>
-                        <p class="text-[11px] text-slate-500 mb-2">تنزيل ملف النسخة الاحتياطية لرفعه إلى مجلدك في Google Drive.</p>
                         <button onclick="uploadBackupToGoogleDrive()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 rounded-lg text-xs shadow-sm flex items-center justify-center gap-1">
                             ☁️ رفع النسخة مباشرة إلى Google Drive
                         </button>
                         <button onclick="exportBackupData()" class="w-full mt-2 bg-white hover:bg-indigo-50 text-indigo-700 border border-indigo-300 font-semibold py-2 rounded-lg text-xs flex items-center justify-center gap-1">
                             📥 تنزيل نسخة JSON يدويًا
                         </button>
-                        <label class="block mt-3 text-[11px] text-indigo-900 font-semibold">معرّف عميل Google (Client ID) لأول استخدام:</label>
+                        <label class="block mt-3 text-[11px] text-indigo-900 font-semibold">معرّف عميل Google (Client ID):</label>
                         <input id="googleClientId" type="text" placeholder="1234567890-xxxx.apps.googleusercontent.com" class="w-full mt-1 p-2 border border-indigo-200 rounded-lg text-[11px]" autocomplete="off">
-                        <p class="text-[10px] text-indigo-700 mt-1 leading-relaxed">يُحفظ المعرّف في هذا المتصفح فقط. أنشئ OAuth Client من Google Cloud مع النطاق Drive API وأصل التطبيق الحالي.</p>
                     </div>
 
                     <div class="p-3 bg-emerald-50 border border-emerald-200 rounded-xl">
                         <span class="block font-bold text-xs text-emerald-900 mb-1">2. استرجاع نسخة سابقة:</span>
-                        <p class="text-[11px] text-slate-500 mb-2">اختر ملف النسخ الاحتياطي لرفعه ومزامنته سحابياً.</p>
                         <input type="file" id="restoreFileInput" accept=".json" class="hidden" onchange="importBackupData(event)">
                         <button onclick="document.getElementById('restoreFileInput').click()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 rounded-lg text-xs shadow-sm flex items-center justify-center gap-1">
                             📤 استيراد واسترجاع البيانات
@@ -334,6 +349,7 @@
                                 <th class="p-2">العطية</th>
                                 <th class="p-2">المانح</th>
                                 <th class="p-2 text-center">الكمية/المبلغ</th>
+                                <th class="p-2 text-center">بواسطة</th>
                                 <th class="p-2">تاريخ الاستلام</th>
                                 <th class="p-2 text-center no-print">إجراءات</th>
                             </tr>
@@ -371,7 +387,6 @@
 
         const rootRef = ref(db, 'atp_data');
 
-        // الاستماع المباشر للتغييرات في السحابة
         onValue(rootRef, (snapshot) => {
             const data = snapshot.val();
             const badge = document.getElementById('cloudStatusBadge');
@@ -395,7 +410,6 @@
                     renderFilteredLogs();
                 }
             } else {
-                // إذا كانت قاعدة البيانات في Firebase جديدة وفارغة، نرفع البيانات الحالية إن وجدت
                 if (beneficiaries.length > 0 || grants.length > 0 || distributionLogs.length > 0) {
                     syncToFirebase();
                 }
@@ -416,6 +430,11 @@
     </script>
 
     <script>
+        // إظهار اسم المسؤول النشط
+        const loggedUser = sessionStorage.getItem('current_user') || localStorage.getItem('last_active_user') || 'مسؤول';
+        const displayElem = document.getElementById('displayUserName');
+        if (displayElem) displayElem.innerText = loggedUser;
+
         document.getElementById('reportPrintDate').innerText = new Date().toLocaleDateString('ar-YE');
 
         let beneficiaries = JSON.parse(localStorage.getItem('alata_beneficiaries')) || [];
@@ -423,7 +442,12 @@
         let distributionLogs = JSON.parse(localStorage.getItem('alata_logs')) || [];
         let currentFilteredLogs = [];
 
-        // دالة المزامنة السحابية إلى Firebase
+        function logoutUser() {
+            sessionStorage.removeItem('current_user');
+            localStorage.removeItem('last_active_user');
+            window.location.replace('login.html');
+        }
+
         function syncToFirebase() {
             localStorage.setItem('alata_beneficiaries', JSON.stringify(beneficiaries));
             localStorage.setItem('alata_grants', JSON.stringify(grants));
@@ -441,7 +465,6 @@
             }
         }
 
-        // تطبيع الأسماء لمنع التكرار ودقة البحث
         function normalizeArabic(text) {
             if (!text) return '';
             return text.toString()
@@ -476,7 +499,7 @@
             if (sectionId === 'reportsSection') initReportsSection();
         }
 
-        // ================= النسخ الاحتياطي (Google Drive) =================
+        // ================= النسخ الاحتياطي =================
         function openBackupModal() {
             const clientId = localStorage.getItem('alata_google_client_id');
             if (clientId) document.getElementById('googleClientId').value = clientId;
@@ -489,7 +512,7 @@
 
         function getFullBackupData() {
             return {
-                version: '1.2',
+                version: '1.3',
                 exportDate: new Date().toISOString(),
                 beneficiaries,
                 grants,
@@ -552,7 +575,7 @@
                         alert(`تم رفع النسخة الاحتياطية مباشرة إلى Google Drive بنجاح.\nاسم الملف: ${uploaded.name}`);
                     } catch (error) {
                         console.error(error);
-                        alert('فشل رفع النسخة إلى Google Drive. تحقق من Client ID وإعدادات Google Cloud.');
+                        alert('فشل رفع النسخة إلى Google Drive.');
                     }
                 }
             });
@@ -568,7 +591,7 @@
                 try {
                     const parsed = JSON.parse(e.target.result);
                     if (!parsed.beneficiaries || !parsed.grants || !parsed.distributionLogs) {
-                        return alert('ملف النسخة الاحتياطية غير صالح أو تالف.');
+                        return alert('ملف النسخة الاحتياطية غير صالح.');
                     }
 
                     if (confirm(`الملف يحتوي على:\n- ${parsed.beneficiaries.length} مستفيد\n- ${parsed.grants.length} عطية\n- ${parsed.distributionLogs.length} حركة صرف\nهل ترغب في استبدال البيانات الحالية بهذه النسخة ورفعها للسحابة؟`)) {
@@ -577,7 +600,7 @@
                         distributionLogs = parsed.distributionLogs;
 
                         syncToFirebase();
-                        alert('تم استرجاع كافة البيانات ومزامنتها بنجاح!');
+                        alert('تم استرجاع ومزامنة البيانات بنجاح!');
                         closeBackupModal();
                         location.reload();
                     }
@@ -890,7 +913,7 @@
             `).join('');
         }
 
-        // ================= الصرف الميداني والتأشير والبحث الفوري =================
+        // ================= الصرف الميداني وتوثيق المستخدم =================
         function initDistributeSection() {
             const grantSelect = document.getElementById('distGrantSelect');
             if (grants.length === 0) {
@@ -985,7 +1008,8 @@
                 beneficiaryId: benId,
                 amount: Number(amount),
                 timestamp: dateStr,
-                rawDate: todayISO
+                rawDate: todayISO,
+                createdByUser: loggedUser // توثيق اسم المستخدم
             });
 
             syncToFirebase();
@@ -1027,7 +1051,8 @@
                     beneficiaryId: benId,
                     amount: Number(amount),
                     timestamp: dateStr,
-                    rawDate: todayISO
+                    rawDate: todayISO,
+                    createdByUser: loggedUser // توثيق اسم المستخدم
                 });
             });
 
@@ -1129,7 +1154,7 @@
 
             const tbody = document.getElementById('logsTableBody');
             if (currentFilteredLogs.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="8" class="text-center py-6 text-slate-400">لا توجد سجلات تطابق الفلترة المحددة.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="9" class="text-center py-6 text-slate-400">لا توجد سجلات تطابق الفلترة المحددة.</td></tr>`;
                 return;
             }
 
@@ -1137,6 +1162,7 @@
                 const ben = beneficiaries.find(b => b.id === log.beneficiaryId) || {};
                 const grant = grants.find(g => g.id == log.grantId) || {};
                 const donor = log.grantDonor || grant.donor || '-';
+                const creator = log.createdByUser || 'مسؤول';
 
                 return `
                     <tr class="hover:bg-slate-50">
@@ -1146,6 +1172,7 @@
                         <td class="p-2 text-indigo-700 font-medium">${log.grantName}</td>
                         <td class="p-2 text-slate-500">${donor}</td>
                         <td class="p-2 text-center font-bold text-emerald-700 bg-emerald-50/50 rounded">${log.amount}</td>
+                        <td class="p-2 text-center text-slate-600 font-medium text-[11px]"><span class="bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded border border-indigo-100">${creator}</span></td>
                         <td class="p-2 text-slate-400 text-[10px]">${log.timestamp}</td>
                         <td class="p-2 text-center no-print">
                             <button onclick="editLogAmount(${log.id})" class="text-indigo-600 hover:underline mx-1">تعديل</button>
@@ -1234,7 +1261,7 @@
 
             currentFilteredLogs.forEach((log, idx) => {
                 const ben = beneficiaries.find(b => b.id === log.beneficiaryId) || {};
-                msg += `${idx + 1}. *${ben.name || 'مستفيد'}*\n   المنطقة: ${ben.area || '-'} | العطية: ${log.grantName} | الكمية: ${log.amount}\n`;
+                msg += `${idx + 1}. *${ben.name || 'مستفيد'}*\n   المنطقة: ${ben.area || '-'} | العطية: ${log.grantName} | الكمية: ${log.amount} | المنفّذ: ${log.createdByUser || '-'}\n`;
             });
 
             msg += `--------------------------------\n`;
@@ -1275,6 +1302,7 @@
                     'العطية': log.grantName,
                     'المانح': log.grantDonor || grant.donor || '-',
                     'الكمية أو المبلغ': log.amount,
+                    'المسؤول المنفذ': log.createdByUser || 'غير محدد',
                     'تاريخ التسليم': log.timestamp
                 };
             });
