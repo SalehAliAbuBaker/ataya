@@ -278,11 +278,11 @@
                 </div>
 
                 <div class="flex justify-between items-center bg-slate-50 p-2.5 rounded-lg border border-slate-200 mb-3 text-xs">
+                    <label class="flex items-center gap-2 cursor-pointer font-semibold text-indigo-700">
+                        <input type="checkbox" id="selectAllCheck" onchange="selectAllVisible(this.checked)" class="w-5 h-5 text-indigo-600 rounded border-slate-300 cursor-pointer disabled:opacity-30">
+                        تحديد الكل
+                    </label>
                     <span id="selectionSummary" class="text-slate-700 font-bold">تم تحديد: 0 أفراد</span>
-                    <div class="flex gap-3">
-                        <button onclick="selectAllVisible(true)" class="text-indigo-600 hover:underline">تحديد الظاهرين</button>
-                        <button onclick="selectAllVisible(false)" class="text-slate-500 hover:underline">إلغاء التحديد</button>
-                    </div>
                 </div>
 
                 <div id="distributeList" class="space-y-2 mb-4 max-h-[28rem] overflow-y-auto"></div>
@@ -1186,8 +1186,16 @@
         }
 
         function updateSummary() {
+            const enabled = document.querySelectorAll('.dist-check:not(:disabled)').length;
             const count = document.querySelectorAll('.dist-check:checked:not(:disabled)').length;
             document.getElementById('selectionSummary').innerText = `تم تحديد: ${count} أفراد`;
+            // حالة خانة "تحديد الكل": مكتملة / جزئية / فارغة
+            const master = document.getElementById('selectAllCheck');
+            if (master) {
+                master.disabled = enabled === 0;
+                master.checked = enabled > 0 && count === enabled;
+                master.indeterminate = count > 0 && count < enabled;
+            }
         }
 
         function confirmDistribution() {
