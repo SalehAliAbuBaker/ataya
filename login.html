@@ -3,76 +3,72 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>تسجيل الدخول | سجل العطايا والمستفيدين</title>
+    <title>تسجيل الدخول - سجل العطايا</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        body { font-family: system-ui, -apple-system, sans-serif; }
-    </style>
 </head>
-<body class="bg-slate-100 min-h-screen flex items-center justify-center p-4">
+<body class="bg-slate-50 min-h-screen flex items-center justify-center p-4 text-slate-800">
+    <form id="loginForm" class="bg-white w-full max-w-sm p-6 rounded-2xl shadow-md border border-slate-200 space-y-4">
+        <h1 class="text-lg font-bold text-indigo-700 text-center">سجل العطايا والمستفيدين</h1>
 
-    <div class="bg-white max-w-md w-full rounded-2xl shadow-xl border border-slate-200 p-6 md:p-8">
-        
-        <div class="text-center mb-6">
-            <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-indigo-50 text-indigo-600 text-3xl mb-3 shadow-inner">
-                📋
-            </div>
-            <h1 class="text-xl font-bold text-slate-800">سجل العطايا والمستفيدين</h1>
-            <p class="text-xs text-slate-500 mt-1">يرجى تسجيل الدخول لتوثيق العمليات</p>
+        <div>
+            <label for="user" class="block text-xs font-semibold mb-1">اسم المستخدم أو البريد</label>
+            <input id="user" type="text" required autocomplete="username" dir="ltr"
+                   class="w-full p-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+        </div>
+        <div>
+            <label for="pass" class="block text-xs font-semibold mb-1">كلمة المرور</label>
+            <input id="pass" type="password" required autocomplete="current-password" dir="ltr"
+                   class="w-full p-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
         </div>
 
-        <form id="loginForm" onsubmit="handleLogin(event)" class="space-y-4">
-            <div>
-                <label class="block text-xs font-bold text-slate-700 mb-1">اسم المستخدم *</label>
-                <input type="text" id="username" required placeholder="أدخل اسمك" class="w-full p-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-slate-50">
-            </div>
+        <p id="err" class="hidden text-xs text-rose-600 bg-rose-50 border border-rose-200 rounded-lg p-2"></p>
 
-            <div>
-                <label class="block text-xs font-bold text-slate-700 mb-1">كلمة المرور *</label>
-                <input type="password" id="password" required placeholder="أدخل كلمة المرور" class="w-full p-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-slate-50">
-            </div>
+        <button id="btn" type="submit"
+                class="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-semibold py-2.5 rounded-lg text-sm">
+            دخول
+        </button>
+    </form>
 
-            <p id="errorMsg" class="text-xs text-rose-600 hidden font-semibold text-center"></p>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 
-            <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-lg text-sm shadow-md transition">
-                تسجيل الدخول
-            </button>
-        </form>
+        const app = initializeApp({
+            apiKey: "AIzaSyDCgspXEuju7E59g9VTdXUEjFMwjX3fnU8",
+            authDomain: "atayadata-e5810.firebaseapp.com",
+            databaseURL: "https://atayadata-e5810-default-rtdb.firebaseio.com",
+            projectId: "atayadata-e5810",
+            storageBucket: "atayadata-e5810.firebasestorage.app",
+            messagingSenderId: "839657864145",
+            appId: "1:839657864145:web:27c59021d2e0039c00fef0"
+        });
+        const auth = getAuth(app);
 
-        <div class="mt-6 pt-4 border-t border-slate-100 text-center">
-            <span class="text-[11px] text-slate-400">مؤسسة الرأفة للتنمية • نظام إدارة العطايا</span>
-        </div>
-    </div>
+        // إذا كان مسجلاً مسبقاً ننتقل مباشرة للتطبيق
+        onAuthStateChanged(auth, u => { if (u) location.replace('index.html'); });
 
-    <script>
-        const allowedUsers = [
-            { username: "صالح الخطيب", password: "123" },
-            { username: "منير بافضل", password: "1234" },
-            { username: "محمد بلسعد", password: "1234" },
-            { username: "إبراهيم بلسعد", password: "1234" }
-        ];
+        // اسم المستخدم البسيط يُحوَّل إلى بريد داخلي: ahmed → ahmed@ataya.local
+        const toEmail = v => { v = v.trim().toLowerCase(); return v.includes('@') ? v : `${v}@ataya.local`; };
 
-        function handleLogin(e) {
+        const form = document.getElementById('loginForm');
+        const err = document.getElementById('err');
+        const btn = document.getElementById('btn');
+
+        form.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const userInput = document.getElementById('username').value.trim();
-            const passInput = document.getElementById('password').value.trim();
-            const error = document.getElementById('errorMsg');
-
-            const matchedUser = allowedUsers.find(
-                u => u.username === userInput && u.password === passInput
-            );
-
-            if (!matchedUser) {
-                error.innerText = 'اسم المستخدم أو كلمة المرور غير صحيحة';
-                error.classList.remove('hidden');
-                return;
+            err.classList.add('hidden');
+            btn.disabled = true;
+            try {
+                await signInWithEmailAndPassword(auth, toEmail(user.value), pass.value);
+            } catch (ex) {
+                const bad = ['auth/invalid-credential', 'auth/wrong-password', 'auth/user-not-found', 'auth/invalid-email'];
+                err.textContent = bad.includes(ex.code) ? 'اسم المستخدم أو كلمة المرور غير صحيحة.'
+                                : ex.code === 'auth/too-many-requests' ? 'محاولات كثيرة، حاول لاحقاً.'
+                                : 'تعذر الاتصال، تحقق من الإنترنت.';
+                err.classList.remove('hidden');
+                btn.disabled = false;
             }
-
-            sessionStorage.setItem('current_user', matchedUser.username);
-            localStorage.setItem('last_active_user', matchedUser.username);
-
-            window.location.href = 'index.html';
-        }
+        });
     </script>
 </body>
 </html>

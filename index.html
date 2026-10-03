@@ -19,11 +19,9 @@
         }
     </style>
     <script>
-        // التحقق المباشر قبل تحميل باقي العناصر
-        const activeUser = sessionStorage.getItem('current_user') || localStorage.getItem('last_active_user');
-        if (!activeUser) {
-            window.location.replace('login.html');
-        }
+        // إخفاء الصفحة حتى يتم التحقق من تسجيل الدخول (Firebase Auth)
+        document.documentElement.style.visibility = 'hidden';
+        setTimeout(() => { document.documentElement.style.visibility = 'visible'; }, 8000);
     </script>
 </head>
 <body class="bg-slate-50 min-h-screen text-slate-800 pb-20">
@@ -362,10 +360,11 @@
 
     </main>
 
-    <!-- Firebase Realtime Database Integration -->
+    <!-- Firebase: Auth + Realtime Database (تحديثات جزئية لكل سجل) -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
-        import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
+        import { getDatabase, ref, update, onValue, get } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
+        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDCgspXEuju7E59g9VTdXUEjFMwjX3fnU8",
@@ -380,58 +379,123 @@
 
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
+        const auth = getAuth(app);
 
-        window.firebaseDB = db;
-        window.firebaseRef = ref;
-        window.firebaseSet = set;
+        const ROOT = 'atp_v2';      // الهيكل الجديد: كل سجل بمفتاحه
+        const OLD  = 'atp_data';    // الهيكل القديم: يبقى كما هو كنسخة احتياطية
+        const COLS = ['beneficiaries', 'grants', 'distributionLogs'];
 
-        const rootRef = ref(db, 'atp_data');
+        const key = id => String(id).replace(/[.#$\[\]\/]/g, '_');
+        const toArr = v => (!v ? [] : (Array.isArray(v) ? v.filter(Boolean) : Object.values(v)))
+                            .sort((a, b) => Number(b.id) - Number(a.id)); // الأحدث أولاً
 
-        onValue(rootRef, (snapshot) => {
-            const data = snapshot.val();
+        let last = { beneficiaries: {}, grants: {}, distributionLogs: {} }; // آخر حالة معروفة في السحابة
+        let ready = false;
+
+        window.fbSetBadge = (state) => {
             const badge = document.getElementById('cloudStatusBadge');
+            if (!badge) return;
+            const m = {
+                ok:    ['bg-emerald-400', 'سحابي متصل', 'bg-emerald-900/60 border-emerald-400/40'],
+                error: ['bg-rose-400', 'محلي (غير متصل)', 'bg-rose-900/60 border-rose-400/40']
+            }[state];
+            badge.innerHTML = `<span class="inline-block w-2 h-2 rounded-full ${m[0]}"></span> ${m[1]}`;
+            badge.className = `text-[10px] ${m[2]} border px-2 py-0.5 rounded-full flex items-center gap-1`;
+        };
 
-            if (data) {
-                if (data.beneficiaries) beneficiaries = data.beneficiaries;
-                if (data.grants) grants = data.grants;
-                if (data.distributionLogs) distributionLogs = data.distributionLogs;
+        window.fbSignOut = () => signOut(auth);
 
-                localStorage.setItem('alata_beneficiaries', JSON.stringify(beneficiaries));
-                localStorage.setItem('alata_grants', JSON.stringify(grants));
-                localStorage.setItem('alata_logs', JSON.stringify(distributionLogs));
+        // رفع السجلات المتغيرة فقط، وحذف المحذوفة؛ لا يستبدل بيانات الآخرين
+        window.fbPush = async function () {
+            if (!ready) return;
+            const cur = { beneficiaries, grants, distributionLogs };
+            const upd = {};
+            const next = {};
+            for (const c of COLS) {
+                next[c] = {};
+                for (const item of cur[c]) {
+                    const k = key(item.id);
+                    const j = JSON.stringify(item);
+                    next[c][k] = j;
+                    if (last[c][k] !== j) upd[`${c}/${k}`] = JSON.parse(j);
+                }
+                for (const k of Object.keys(last[c])) if (!(k in next[c])) upd[`${c}/${k}`] = null;
+            }
+            if (!Object.keys(upd).length) return;
+            upd.lastUpdated = new Date().toISOString();
+            await update(ref(db, ROOT), upd);
+            last = next; // لا نحدّث الحالة إلا بعد نجاح الرفع
+            window.fbSetBadge('ok');
+        };
 
-                renderBeneficiaries();
-                renderGrants();
-                updateCategoryDropdowns();
-                if (document.getElementById('distributeSection').classList.contains('active-section')) {
-                    loadDistributionList();
+        function applyAndRender(d) {
+            beneficiaries = toArr(d.beneficiaries);
+            grants = toArr(d.grants);
+            distributionLogs = toArr(d.distributionLogs);
+            for (const c of COLS) {
+                last[c] = {};
+                for (const item of (c === 'beneficiaries' ? beneficiaries : c === 'grants' ? grants : distributionLogs))
+                    last[c][key(item.id)] = JSON.stringify(item);
+            }
+            localStorage.setItem('alata_beneficiaries', JSON.stringify(beneficiaries));
+            localStorage.setItem('alata_grants', JSON.stringify(grants));
+            localStorage.setItem('alata_logs', JSON.stringify(distributionLogs));
+
+            renderBeneficiaries();
+            renderGrants();
+            updateCategoryDropdowns();
+            if (document.getElementById('distributeSection').classList.contains('active-section')) loadDistributionList();
+            if (document.getElementById('reportsSection').classList.contains('active-section')) renderFilteredLogs();
+        }
+
+        let started = false;
+        async function start() {
+            if (started) return;
+            started = true;
+            const rootRef = ref(db, ROOT);
+            try {
+                // ترحيل لمرة واحدة من الهيكل القديم إذا كان الجديد فارغاً
+                const snap = await get(rootRef);
+                if (!snap.exists()) {
+                    const old = await get(ref(db, OLD)).catch(() => null);
+                    if (old && old.exists()) {
+                        const o = old.val();
+                        beneficiaries = toArr(o.beneficiaries);
+                        grants = toArr(o.grants);
+                        distributionLogs = toArr(o.distributionLogs);
+                        ready = true;
+                        await window.fbPush();
+                    }
                 }
-                if (document.getElementById('reportsSection').classList.contains('active-section')) {
-                    renderFilteredLogs();
-                }
-            } else {
-                if (beneficiaries.length > 0 || grants.length > 0 || distributionLogs.length > 0) {
-                    syncToFirebase();
-                }
+            } catch (e) {
+                console.error(e);
+                window.fbSetBadge('error');
             }
 
-            if (badge) {
-                badge.innerHTML = `<span class="inline-block w-2 h-2 rounded-full bg-emerald-400"></span> سحابي متصل`;
-                badge.className = "text-[10px] bg-emerald-900/60 border border-emerald-400/40 px-2 py-0.5 rounded-full flex items-center gap-1";
-            }
-        }, (error) => {
-            console.error("Firebase Sync Error:", error);
-            const badge = document.getElementById('cloudStatusBadge');
-            if (badge) {
-                badge.innerHTML = `<span class="inline-block w-2 h-2 rounded-full bg-rose-400"></span> محلي (غير متصل)`;
-                badge.className = "text-[10px] bg-rose-900/60 border border-rose-400/40 px-2 py-0.5 rounded-full flex items-center gap-1";
-            }
+            onValue(rootRef, (s) => {
+                applyAndRender(s.val() || {});
+                ready = true;   // لا كتابة قبل أول قراءة ناجحة
+                window.fbSetBadge('ok');
+            }, (error) => {
+                console.error('Firebase Sync Error:', error);
+                window.fbSetBadge('error');
+            });
+        }
+
+        onAuthStateChanged(auth, (user) => {
+            if (!user) { window.location.replace('login.html'); return; }
+            loggedUser = user.displayName || (user.email || '').split('@')[0] || 'مسؤول';
+            const el = document.getElementById('displayUserName');
+            if (el) el.innerText = loggedUser;
+            document.documentElement.style.visibility = 'visible';
+            start();
         });
     </script>
 
+
     <script>
         // إظهار اسم المسؤول النشط
-        const loggedUser = sessionStorage.getItem('current_user') || localStorage.getItem('last_active_user') || 'مسؤول';
+        let loggedUser = 'مسؤول'; // يُحدَّث من حساب Firebase بعد الدخول
         const displayElem = document.getElementById('displayUserName');
         if (displayElem) displayElem.innerText = loggedUser;
 
@@ -443,26 +507,20 @@
         let currentFilteredLogs = [];
 
         function logoutUser() {
-            sessionStorage.removeItem('current_user');
-            localStorage.removeItem('last_active_user');
-            window.location.replace('login.html');
+            if (window.fbSignOut) window.fbSignOut().finally(() => window.location.replace('login.html'));
+            else window.location.replace('login.html');
         }
 
+        // نسخة محلية فورية + رفع التغييرات فقط (وليس كامل البيانات) إلى السحابة
         function syncToFirebase() {
             localStorage.setItem('alata_beneficiaries', JSON.stringify(beneficiaries));
             localStorage.setItem('alata_grants', JSON.stringify(grants));
             localStorage.setItem('alata_logs', JSON.stringify(distributionLogs));
-
-            if (window.firebaseDB && window.firebaseRef && window.firebaseSet) {
-                window.firebaseSet(window.firebaseRef(window.firebaseDB, 'atp_data'), {
-                    beneficiaries: beneficiaries,
-                    grants: grants,
-                    distributionLogs: distributionLogs,
-                    lastUpdated: new Date().toISOString()
-                }).catch(err => {
-                    console.error("خطأ أثناء الرفع السحابي:", err);
-                });
-            }
+            if (!window.fbPush) return Promise.resolve();
+            return window.fbPush().catch(err => {
+                console.error('خطأ أثناء الرفع السحابي:', err);
+                window.fbSetBadge && window.fbSetBadge('error');
+            });
         }
 
         function normalizeArabic(text) {
@@ -599,10 +657,11 @@
                         grants = parsed.grants;
                         distributionLogs = parsed.distributionLogs;
 
-                        syncToFirebase();
-                        alert('تم استرجاع ومزامنة البيانات بنجاح!');
-                        closeBackupModal();
-                        location.reload();
+                        syncToFirebase().then(() => {
+                            alert('تم استرجاع ومزامنة البيانات بنجاح!');
+                            closeBackupModal();
+                            location.reload();
+                        });
                     }
                 } catch (err) {
                     alert('تعذر قراءة ملف النسخة الاحتياطية.');
@@ -959,7 +1018,7 @@
                 return `
                     <div class="p-3 bg-white border border-slate-200 rounded-xl flex items-center justify-between gap-2 shadow-xs hover:border-indigo-300">
                         <div class="flex items-start gap-2.5 flex-1">
-                            <input type="checkbox" value="${b.id}" onchange="updateSummary()" class="dist-check mt-1 w-5 h-5 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer">
+                            <input type="checkbox" value="${b.id}" onchange="updateSummary()" ${totalTaken > 0 ? 'disabled' : ''} class="dist-check disabled:opacity-30 mt-1 w-5 h-5 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer">
                             <div>
                                 <span class="font-bold text-slate-800 text-sm block">${b.name}</span>
                                 <div class="text-[11px] text-slate-500 flex flex-wrap items-center gap-x-2 mt-0.5">
@@ -972,11 +1031,11 @@
 
                         <div class="text-left flex flex-col items-end gap-1">
                             <span class="text-[10px] ${totalTaken > 0 ? 'text-amber-600 font-bold' : 'text-slate-400'}">
-                                ${totalTaken > 0 ? `استلم: ${totalTaken}` : 'لم يستلم'}
+                                ${totalTaken > 0 ? `✓ استلم: ${totalTaken}` : 'لم يستلم'}
                             </span>
                             <div class="flex items-center gap-1">
-                                <input type="number" id="quota-${b.id}" value="${activeGrant.defaultQuota}" min="1" class="w-14 p-1 text-center font-bold border border-slate-300 rounded text-xs focus:ring-1 focus:ring-indigo-500">
-                                <button onclick="quickDistributeOne(${b.id})" class="bg-indigo-50 hover:bg-indigo-600 hover:text-white text-indigo-700 font-semibold px-2 py-1 rounded text-[11px] border border-indigo-200 transition">
+                                <input type="number" id="quota-${b.id}" value="${activeGrant.defaultQuota}" min="1" ${totalTaken > 0 ? 'disabled' : ''} class="disabled:opacity-40 w-14 p-1 text-center font-bold border border-slate-300 rounded text-xs focus:ring-1 focus:ring-indigo-500">
+                                <button onclick="quickDistributeOne(${b.id})" ${totalTaken > 0 ? 'disabled' : ''} class="disabled:opacity-40 disabled:pointer-events-none bg-indigo-50 hover:bg-indigo-600 hover:text-white text-indigo-700 font-semibold px-2 py-1 rounded text-[11px] border border-indigo-200 transition">
                                     صرف فوري
                                 </button>
                             </div>
@@ -995,6 +1054,9 @@
             const activeGrant = grants.find(g => g.id == grantId);
             const amount = document.getElementById(`quota-${benId}`).value || 1;
             const ben = beneficiaries.find(b => b.id == benId);
+            if (distributionLogs.some(l => l.beneficiaryId == benId && l.grantId == activeGrant.id)) {
+                return alert(`(${ben.name}) استلم هذه العطية مسبقاً.`);
+            }
 
             const todayISO = new Date().toISOString().slice(0, 10);
             const now = new Date();
@@ -1018,18 +1080,18 @@
         }
 
         function selectAllVisible(status) {
-            document.querySelectorAll('.dist-check').forEach(cb => cb.checked = status);
+            document.querySelectorAll('.dist-check').forEach(cb => { if (!cb.disabled) cb.checked = status; });
             updateSummary();
         }
 
         function updateSummary() {
-            const count = document.querySelectorAll('.dist-check:checked').length;
+            const count = document.querySelectorAll('.dist-check:checked:not(:disabled)').length;
             document.getElementById('selectionSummary').innerText = `تم تحديد: ${count} أفراد`;
         }
 
         function confirmDistribution() {
             const grantId = document.getElementById('distGrantSelect').value;
-            const checkedBoxes = document.querySelectorAll('.dist-check:checked');
+            const checkedBoxes = document.querySelectorAll('.dist-check:checked:not(:disabled)');
 
             if (!grantId) return alert('يرجى تحديد العطية أولاً.');
             if (checkedBoxes.length === 0) return alert('يرجى تأشير مستفيد واحد على الأقل.');
@@ -1039,8 +1101,10 @@
             const now = new Date();
             const dateStr = now.toLocaleDateString('ar-YE') + ' ' + now.toLocaleTimeString('ar-YE', {hour: '2-digit', minute:'2-digit'});
 
+            let skipped = 0;
             checkedBoxes.forEach(cb => {
                 const benId = Number(cb.value);
+                if (distributionLogs.some(l => l.beneficiaryId == benId && l.grantId == activeGrant.id)) { skipped++; return; }
                 const amount = document.getElementById(`quota-${benId}`).value || 1;
 
                 distributionLogs.unshift({
@@ -1057,7 +1121,7 @@
             });
 
             syncToFirebase();
-            alert(`تم حفظ الصرف لعدد (${checkedBoxes.length}) مستفيد.`);
+            alert(`تم حفظ الصرف لعدد (${checkedBoxes.length - skipped}) مستفيد.` + (skipped ? `\nتم تخطي ${skipped} لاستلامهم هذه العطية مسبقاً.` : ''));
             showSection('reportsSection');
         }
 
