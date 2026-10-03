@@ -38,13 +38,20 @@
         .stmt-sign b { display: block; margin-bottom: 10px; font-size: 13px; }
         .stmt-sign p { margin: 12px 0 0; font-size: 12px; color: #334155; }
         .stmt-sign .ln { display: inline-block; width: 62%; border-bottom: 1px dotted #475569; vertical-align: bottom; }
-        @page { size: A4 portrait; margin: 12mm; }
+        @page { size: A4 portrait; margin: 10mm; }
+        .stmt-page { position: relative; width: 718px; height: 1040px; overflow: hidden; background: #fff; box-sizing: border-box; }
+        .stmt-compact { display: flex; justify-content: space-between; align-items: center; gap: 8px; border-bottom: 2px solid #1e293b; padding-bottom: 6px; margin-bottom: 10px; font-size: 12px; color: #334155; }
+        .stmt-compact b { font-size: 15px; color: #0f172a; }
+        .stmt-foot { position: absolute; bottom: 0; right: 0; left: 0; text-align: center; font-size: 11px; color: #475569; border-top: 1px solid #cbd5e1; padding-top: 5px; }
+        #statementSheet .stmt-page { margin-bottom: 14px; box-shadow: 0 1px 4px rgba(0,0,0,.25); }
         @media print {
             body.printing-statement > *:not(#statementViewer) { display: none !important; }
             body.printing-statement #statementViewer { position: static !important; display: block !important; overflow: visible !important; background: #fff !important; height: auto !important; }
             body.printing-statement #statementScale { padding: 0 !important; display: block !important; }
             body.printing-statement #statementSheet { zoom: 1 !important; box-shadow: none !important; }
             body.printing-statement .stmt-sheet { width: 100% !important; }
+            body.printing-statement .stmt-page { width: 100% !important; margin: 0 !important; box-shadow: none !important; break-after: page; page-break-after: always; }
+            body.printing-statement .stmt-page:last-child { break-after: auto; page-break-after: auto; }
         }
     </style>
     <script>
@@ -223,7 +230,7 @@
                     </div>
                     <div>
                         <label class="block text-xs font-semibold text-slate-600 mb-1">التاريخ *</label>
-                        <input type="date" id="grantDate" onclick="try{this.showPicker()}catch(e){}" class="w-full p-2 border border-slate-300 rounded-lg text-sm bg-white cursor-pointer">
+                        <input type="date" id="grantDate" class="w-full p-2 border border-slate-300 rounded-lg text-sm bg-white cursor-pointer">
                     </div>
                     <div>
                         <label class="block text-xs font-semibold text-slate-600 mb-1">رقم المستند (يُولَّد تلقائياً إن تُرك فارغاً)</label>
@@ -335,12 +342,12 @@
 
                     <div>
                         <label class="block text-slate-600 font-semibold mb-1">من تاريخ:</label>
-                        <input type="date" id="filterFromDate" onclick="try{this.showPicker()}catch(e){}" onchange="renderFilteredLogs()" class="w-full p-1.5 border border-slate-300 rounded-lg bg-white cursor-pointer">
+                        <input type="date" id="filterFromDate" onchange="renderFilteredLogs()" class="w-full p-1.5 border border-slate-300 rounded-lg bg-white cursor-pointer">
                     </div>
 
                     <div>
                         <label class="block text-slate-600 font-semibold mb-1">إلى تاريخ:</label>
-                        <input type="date" id="filterToDate" onclick="try{this.showPicker()}catch(e){}" onchange="renderFilteredLogs()" class="w-full p-1.5 border border-slate-300 rounded-lg bg-white cursor-pointer">
+                        <input type="date" id="filterToDate" onchange="renderFilteredLogs()" class="w-full p-1.5 border border-slate-300 rounded-lg bg-white cursor-pointer">
                     </div>
                 </div>
 
@@ -670,7 +677,7 @@
             const fullData = getFullBackupData();
             const dataStr = "data:application/json;charset=utf-8," + encodeURIComponent(JSON.stringify(fullData, null, 2));
             const anchor = document.createElement('a');
-            const dateStr = new Date().toISOString().slice(0, 10);
+            const dateStr = todayLocal();
             anchor.href = dataStr;
             anchor.download = `نسخة_احتياطية_العطايا_${dateStr}.json`;
             anchor.click();
@@ -702,7 +709,7 @@
                 callback: async (tokenResponse) => {
                     if (tokenResponse.error) return alert('تعذر الحصول على إذن Google Drive.');
                     try {
-                        const dateStr = new Date().toISOString().slice(0, 10);
+                        const dateStr = todayLocal();
                         const metadata = { name: `نسخة_احتياطية_العطايا_${dateStr}.json`, mimeType: 'application/json' };
                         const boundary = '-------alataBackupBoundary';
                         const blob = makeBackupBlob();
@@ -1028,7 +1035,7 @@
             document.getElementById('editGrantId').value = '';
             document.getElementById('grantName').value = '';
             document.getElementById('grantDonor').value = '';
-            document.getElementById('grantDate').value = '';
+            document.getElementById('grantDate').value = todayLocal();
             document.getElementById('grantDefaultQuota').value = 1;
             document.getElementById('grantDetails').value = '';
             document.getElementById('grantDocNo').value = '';
@@ -1152,7 +1159,7 @@
                 return alert(`(${ben.name}) استلم هذه العطية مسبقاً.`);
             }
 
-            const todayISO = new Date().toISOString().slice(0, 10);
+            const todayISO = todayLocal();
             const now = new Date();
             const dateStr = now.toLocaleDateString('ar-YE') + ' ' + now.toLocaleTimeString('ar-YE', {hour: '2-digit', minute:'2-digit'});
 
@@ -1191,7 +1198,7 @@
             if (checkedBoxes.length === 0) return alert('يرجى تأشير مستفيد واحد على الأقل.');
 
             const activeGrant = grants.find(g => g.id == grantId);
-            const todayISO = new Date().toISOString().slice(0, 10);
+            const todayISO = todayLocal();
             const now = new Date();
             const dateStr = now.toLocaleDateString('ar-YE') + ' ' + now.toLocaleTimeString('ar-YE', {hour: '2-digit', minute:'2-digit'});
 
@@ -1364,7 +1371,7 @@
             if (currentFilteredLogs.length === 0) return alert('لا توجد بيانات لمشاركتها.');
 
             const element = document.getElementById('pdfReportArea');
-            const dateStr = new Date().toISOString().slice(0, 10);
+            const dateStr = todayLocal();
             const fileName = `تقرير_العطايا_${dateStr}.pdf`;
 
             const opt = {
@@ -1439,7 +1446,7 @@
             const element = document.getElementById('pdfReportArea');
             const opt = {
                 margin:       [8, 8, 8, 8],
-                filename:     `تقرير_العطايا_${new Date().toISOString().slice(0,10)}.pdf`,
+                filename:     `تقرير_العطايا_${todayLocal()}.pdf`,
                 image:        { type: 'jpeg', quality: 0.98 },
                 html2canvas:  { scale: 2, useCORS: true },
                 jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
@@ -1448,6 +1455,24 @@
         }
 
         // ================= كشوفات العطايا (الكشف التجميعي) =================
+        // تاريخ اليوم بالتوقيت المحلي (وليس UTC)
+        function todayLocal() {
+            const d = new Date();
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        }
+        function setDefaultDates() {
+            ['grantDate', 'filterFromDate', 'filterToDate'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el && !el.value) el.value = todayLocal();
+            });
+        }
+        // الضغط على أي موضع في خانة التاريخ يفتح التقويم
+        document.addEventListener('click', e => {
+            if (e.target && e.target.matches && e.target.matches('input[type="date"]')) {
+                try { e.target.showPicker(); } catch (_) {}
+            }
+        });
+
         const escHtml = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
         const fmtNum = n => Number(Number(n || 0).toFixed(2)).toLocaleString('en-US');
         let currentStatementId = null;
@@ -1487,7 +1512,7 @@
                 grant, rows,
                 total: rows.reduce((s, r) => s + r.amount, 0),
                 count: rows.length,
-                issued: new Date().toISOString().slice(0, 10)
+                issued: todayLocal()
             };
         }
 
@@ -1499,20 +1524,26 @@
             </div>`;
         }
 
-        function buildStatementHTML(d) {
-            const g = d.grant;
-            const rows = d.rows.length ? d.rows.map((r, i) => `
-                <tr>
-                    <td class="c">${i + 1}</td>
-                    <td>${escHtml(r.ben.name)}</td>
-                    <td>${escHtml(r.ben.area || '-')}</td>
-                    <td class="c">${escHtml(r.ben.familyCount ?? '-')}</td>
-                    <td>${escHtml(r.ben.category || '-')}</td>
-                    <td class="c"><b>${fmtNum(r.amount)}</b></td>
-                </tr>`).join('')
-                : `<tr><td colspan="6" class="c" style="padding:18px;color:#64748b">لم تُصرف هذه العطية لأي مستفيد بعد.</td></tr>`;
+        // ---------- بناء صفحات الكشف (ترويسة متكررة + ترقيم) ----------
+        const STMT_THEAD = `<thead><tr>
+            <th style="width:6%">م</th><th style="width:32%">اسم المستفيد</th><th style="width:20%">المنطقة</th>
+            <th style="width:12%">عدد الأفراد</th><th style="width:16%">الفئة</th><th style="width:14%">الكمية / المبلغ</th>
+        </tr></thead>`;
 
-            return `<div class="stmt-sheet">
+        function statementRowHTML(r, i) {
+            return `<tr>
+                <td class="c">${i + 1}</td>
+                <td>${escHtml(r.ben.name)}</td>
+                <td>${escHtml(r.ben.area || '-')}</td>
+                <td class="c">${escHtml(r.ben.familyCount ?? '-')}</td>
+                <td>${escHtml(r.ben.category || '-')}</td>
+                <td class="c"><b>${fmtNum(r.amount)}</b></td>
+            </tr>`;
+        }
+
+        function statementTopHTML(d) {
+            const g = d.grant;
+            return `<div class="stmt-top">
                 <div class="stmt-head">
                     <div class="org">سجل العطايا والمستفيدين</div>
                     <h1>كشف صرف عطية</h1>
@@ -1523,20 +1554,88 @@
                     <tr><th>التفاصيل</th><td colspan="3">${g.details ? escHtml(g.details).replace(/\n/g, '<br>') : '-'}</td></tr>
                     <tr><th>عدد المستفيدين</th><td>${d.count}</td><th>تاريخ إصدار الكشف</th><td>${d.issued}</td></tr>
                 </table>
-                <table class="stmt-table">
-                    <thead><tr>
-                        <th style="width:6%">م</th><th style="width:32%">اسم المستفيد</th><th style="width:20%">المنطقة</th>
-                        <th style="width:12%">عدد الأفراد</th><th style="width:16%">الفئة</th><th style="width:14%">الكمية / المبلغ</th>
-                    </tr></thead>
-                    <tbody>${rows}</tbody>
-                    <tfoot><tr>
-                        <td colspan="2">إجمالي عدد المستفيدين: ${d.count}</td>
-                        <td colspan="3" style="text-align:left">إجمالي الكميات / المبالغ</td>
-                        <td class="c">${fmtNum(d.total)}</td>
-                    </tr></tfoot>
-                </table>
-                ${signatureBlockHTML()}
             </div>`;
+        }
+
+        // ترويسة مختصرة تتكرر في بقية الصفحات
+        function statementCompactHTML(d) {
+            const g = d.grant;
+            return `<div class="stmt-compact">
+                <b>كشف صرف عطية: ${escHtml(g.name)}</b>
+                <span>رقم المستند: <bdi>${escHtml(g.docNo || '-')}</bdi> | التاريخ: ${escHtml(g.date)}</span>
+            </div>`;
+        }
+
+        function statementTfootHTML(d) {
+            return `<tr>
+                <td colspan="2">إجمالي عدد المستفيدين: ${d.count}</td>
+                <td colspan="3" style="text-align:left">إجمالي الكميات / المبالغ</td>
+                <td class="c">${fmtNum(d.total)}</td>
+            </tr>`;
+        }
+
+        // يقيس ارتفاع الصفوف ثم يوزّعها على صفحات A4 ثابتة الارتفاع
+        async function buildStatementPagesHTML(d) {
+            try { await document.fonts.load('400 13px Tajawal'); await document.fonts.load('700 13px Tajawal'); } catch (e) {}
+
+            const PAGE_H = 1040, FOOT_H = 34, MAX = PAGE_H - FOOT_H, GAP = 14, SIGN_GAP = 26;
+            const rowsHtml = d.rows.length
+                ? d.rows.map((r, i) => statementRowHTML(r, i))
+                : [`<tr><td colspan="6" class="c" style="padding:18px;color:#64748b">لم تُصرف هذه العطية لأي مستفيد بعد.</td></tr>`];
+            const tfoot = statementTfootHTML(d);
+
+            // 1) القياس
+            const m = document.createElement('div');
+            m.className = 'stmt-sheet';
+            m.style.cssText = 'position:fixed;left:-10000px;top:0;visibility:hidden';
+            m.innerHTML = `${statementTopHTML(d)}${statementCompactHTML(d)}
+                <table class="stmt-table">${STMT_THEAD}<tbody>${rowsHtml.join('')}</tbody><tfoot>${tfoot}</tfoot></table>
+                ${signatureBlockHTML()}`;
+            document.body.appendChild(m);
+            const h = el => Math.ceil(el.getBoundingClientRect().height);
+            const topH = h(m.querySelector('.stmt-top'));
+            const cmpH = h(m.querySelector('.stmt-compact'));
+            const table = m.querySelector('.stmt-table');
+            const theadH = h(table.tHead);
+            const tfootH = h(table.tFoot);
+            const rowH = [...table.tBodies[0].rows].map(h);
+            const signH = h(m.querySelector('.stmt-sign'));
+            m.remove();
+
+            // 2) التوزيع
+            const pages = [];
+            let cur = { rows: [], used: topH + GAP + theadH, tfoot: false, sign: false };
+            rowH.forEach((rh, i) => {
+                if (cur.rows.length && cur.used + rh > MAX) {
+                    pages.push(cur);
+                    cur = { rows: [], used: cmpH + GAP + theadH, tfoot: false, sign: false };
+                }
+                cur.rows.push(i);
+                cur.used += rh;
+            });
+            pages.push(cur);
+
+            const last = pages[pages.length - 1];
+            if (last.used + tfootH <= MAX) {
+                last.tfoot = true;
+                last.used += tfootH;
+                if (last.used + SIGN_GAP + signH <= MAX) last.sign = true;
+                else pages.push({ rows: [], tfoot: false, sign: true });
+            } else {
+                pages.push({ rows: [], tfoot: true, sign: true });
+            }
+
+            // 3) البناء
+            const n = pages.length;
+            const body = pages.map((p, pi) => {
+                const head = pi === 0 ? statementTopHTML(d) : statementCompactHTML(d);
+                const tbl = (p.rows.length || p.tfoot)
+                    ? `<table class="stmt-table">${p.rows.length ? STMT_THEAD + `<tbody>${p.rows.map(i => rowsHtml[i]).join('')}</tbody>` : ''}${p.tfoot ? `<tfoot>${tfoot}</tfoot>` : ''}</table>`
+                    : '';
+                return `<div class="stmt-page${pi ? ' stmt-page-next' : ''}">${head}${tbl}${p.sign ? signatureBlockHTML() : ''}
+                    <div class="stmt-foot"><bdi>${escHtml(d.grant.docNo || '')}</bdi> — صفحة ${pi + 1} من ${n}</div></div>`;
+            }).join('');
+            return `<div class="stmt-sheet">${body}</div>`;
         }
 
         function buildStatementText(d) {
@@ -1594,11 +1693,15 @@
             document.body.style.overflow = 'hidden';
         }
 
-        function refreshStatement() {
+        let stmtRenderToken = 0;
+        async function refreshStatement() {
             const d = buildStatementData(currentStatementId);
             if (!d) return closeStatement();
+            const tok = ++stmtRenderToken;
+            const html = await buildStatementPagesHTML(d);
+            if (tok !== stmtRenderToken || currentStatementId === null) return;
             const host = document.getElementById('statementSheet');
-            host.innerHTML = buildStatementHTML(d);
+            host.innerHTML = html;
             const sc = Math.min(1, (window.innerWidth - 16) / 718);
             host.style.zoom = sc < 1 ? sc : '';
         }
@@ -1622,11 +1725,9 @@
         async function makeStatementPdf() {
             const d = buildStatementData(currentStatementId);
             if (!d) throw new Error('العطية غير موجودة');
-            try { await document.fonts.load('400 13px Tajawal'); await document.fonts.load('700 13px Tajawal'); } catch (e) {}
-
             const stage = document.createElement('div');
             stage.style.cssText = 'position:fixed;left:-10000px;top:0;width:718px;background:#fff;';
-            stage.innerHTML = buildStatementHTML(d);
+            stage.innerHTML = await buildStatementPagesHTML(d);
             document.body.appendChild(stage);
 
             const fileName = `كشف_${d.grant.docNo || 'عطية'}_${d.grant.name}.pdf`.replace(/[\\/:*?"<>|\s]+/g, '_');
@@ -1636,7 +1737,7 @@
                 image: { type: 'jpeg', quality: 0.98 },
                 html2canvas: { scale: 2, useCORS: true },
                 jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-                pagebreak: { mode: ['css', 'legacy'], avoid: ['tr', '.stmt-sign'] }
+                pagebreak: { mode: ['css'], before: '.stmt-page-next' }
             };
             try {
                 const blob = await html2pdf().set(opt).from(stage.firstElementChild).outputPdf('blob');
@@ -1773,9 +1874,10 @@
             const ws = XLSX.utils.json_to_sheet(reportData);
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, "كشف العطايا المفلتر");
-            XLSX.writeFile(wb, `كشف_العطايا_${new Date().toISOString().slice(0,10)}.xlsx`);
+            XLSX.writeFile(wb, `كشف_العطايا_${todayLocal()}.xlsx`);
         }
 
+        setDefaultDates();
         showSection('beneficiariesSection');
         updateCategoryDropdowns();
     </script>
