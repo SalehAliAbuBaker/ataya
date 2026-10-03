@@ -24,7 +24,12 @@
     <!-- Header -->
     <header class="bg-indigo-700 text-white p-4 shadow-md sticky top-0 z-20">
         <div class="max-w-3xl mx-auto flex justify-between items-center">
-            <h1 class="text-lg font-bold">سجل العطايا والمستفيدين</h1>
+            <div class="flex items-center gap-2">
+                <h1 class="text-lg font-bold">سجل العطايا والمستفيدين</h1>
+                <span id="cloudStatusBadge" class="text-[10px] bg-indigo-900/70 border border-indigo-400/40 px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <span class="inline-block w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span> جاري المزامنة...
+                </span>
+            </div>
             <div class="flex items-center gap-2">
                 <button onclick="openBackupModal()" class="text-xs bg-indigo-800 hover:bg-indigo-900 px-2.5 py-1.5 rounded-lg border border-indigo-400 flex items-center gap-1 shadow-sm transition">
                     ☁️ النسخ الاحتياطي
@@ -54,7 +59,7 @@
                 </div>
 
                 <p class="text-xs text-slate-600 mb-4 leading-relaxed">
-                    لحماية بياناتك من الضياع، يمكنك تصدير ملف النسخة الاحتياطية وحفظه في حسابك بـ <b>Google Drive</b>، أو استرجاعه في أي وقت على أي جهاز آخر.
+                    بياناتك الآن متزامنة تلقائياً مع <b>Firebase</b>، ويمكنك أيضاً أخذ نسخة JSON أو حفظها في Google Drive كإجراء احترازي إضافي.
                 </p>
 
                 <div class="space-y-3">
@@ -74,7 +79,7 @@
 
                     <div class="p-3 bg-emerald-50 border border-emerald-200 rounded-xl">
                         <span class="block font-bold text-xs text-emerald-900 mb-1">2. استرجاع نسخة سابقة:</span>
-                        <p class="text-[11px] text-slate-500 mb-2">اختر ملف النسخ الاحتياطي الذي قمت بتنزيله سابقاً من Drive.</p>
+                        <p class="text-[11px] text-slate-500 mb-2">اختر ملف النسخ الاحتياطي لرفعه ومزامنته سحابياً.</p>
                         <input type="file" id="restoreFileInput" accept=".json" class="hidden" onchange="importBackupData(event)">
                         <button onclick="document.getElementById('restoreFileInput').click()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 rounded-lg text-xs shadow-sm flex items-center justify-center gap-1">
                             📤 استيراد واسترجاع البيانات
@@ -240,7 +245,6 @@
                     <button onclick="resetFilters()" class="text-xs text-slate-500 hover:text-rose-600 hover:underline">إعادة تعيين الفلاتر</button>
                 </div>
 
-                <!-- زر وشريط البحث بالاسم داخل التقارير -->
                 <div class="mb-3 bg-indigo-50/50 p-2.5 rounded-lg border border-indigo-100">
                     <label class="block text-xs font-bold text-indigo-900 mb-1">بحث سريع في التقرير بالاسم (كامل أو مقطع):</label>
                     <div class="relative flex items-center">
@@ -301,7 +305,6 @@
                     
                     <div class="flex flex-wrap gap-1.5 no-print">
                         <button onclick="sharePDFToWhatsAppSmart()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 shadow-sm">
-                            <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>
                             مشاركة PDF للواتساب
                         </button>
                         <button onclick="shareTextDirect()" class="bg-teal-600 hover:bg-teal-700 text-white px-2.5 py-1.5 rounded-lg text-xs font-semibold shadow-sm">
@@ -343,6 +346,75 @@
 
     </main>
 
+    <!-- Firebase Realtime Database Integration -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+        import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDCgspXEuju7E59g9VTdXUEjFMwjX3fnU8",
+            authDomain: "atayadata-e5810.firebaseapp.com",
+            databaseURL: "https://atayadata-e5810-default-rtdb.firebaseio.com",
+            projectId: "atayadata-e5810",
+            storageBucket: "atayadata-e5810.firebasestorage.app",
+            messagingSenderId: "839657864145",
+            appId: "1:839657864145:web:27c59021d2e0039c00fef0",
+            measurementId: "G-YHC584Q2ZB"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        window.firebaseDB = db;
+        window.firebaseRef = ref;
+        window.firebaseSet = set;
+
+        const rootRef = ref(db, 'atp_data');
+
+        // الاستماع المباشر للتغييرات في السحابة
+        onValue(rootRef, (snapshot) => {
+            const data = snapshot.val();
+            const badge = document.getElementById('cloudStatusBadge');
+
+            if (data) {
+                if (data.beneficiaries) beneficiaries = data.beneficiaries;
+                if (data.grants) grants = data.grants;
+                if (data.distributionLogs) distributionLogs = data.distributionLogs;
+
+                localStorage.setItem('alata_beneficiaries', JSON.stringify(beneficiaries));
+                localStorage.setItem('alata_grants', JSON.stringify(grants));
+                localStorage.setItem('alata_logs', JSON.stringify(distributionLogs));
+
+                renderBeneficiaries();
+                renderGrants();
+                updateCategoryDropdowns();
+                if (document.getElementById('distributeSection').classList.contains('active-section')) {
+                    loadDistributionList();
+                }
+                if (document.getElementById('reportsSection').classList.contains('active-section')) {
+                    renderFilteredLogs();
+                }
+            } else {
+                // إذا كانت قاعدة البيانات في Firebase جديدة وفارغة، نرفع البيانات الحالية إن وجدت
+                if (beneficiaries.length > 0 || grants.length > 0 || distributionLogs.length > 0) {
+                    syncToFirebase();
+                }
+            }
+
+            if (badge) {
+                badge.innerHTML = `<span class="inline-block w-2 h-2 rounded-full bg-emerald-400"></span> سحابي متصل`;
+                badge.className = "text-[10px] bg-emerald-900/60 border border-emerald-400/40 px-2 py-0.5 rounded-full flex items-center gap-1";
+            }
+        }, (error) => {
+            console.error("Firebase Sync Error:", error);
+            const badge = document.getElementById('cloudStatusBadge');
+            if (badge) {
+                badge.innerHTML = `<span class="inline-block w-2 h-2 rounded-full bg-rose-400"></span> محلي (غير متصل)`;
+                badge.className = "text-[10px] bg-rose-900/60 border border-rose-400/40 px-2 py-0.5 rounded-full flex items-center gap-1";
+            }
+        });
+    </script>
+
     <script>
         document.getElementById('reportPrintDate').innerText = new Date().toLocaleDateString('ar-YE');
 
@@ -351,7 +423,25 @@
         let distributionLogs = JSON.parse(localStorage.getItem('alata_logs')) || [];
         let currentFilteredLogs = [];
 
-        // ================= تطبيع الأسماء لمنع التكرار ودقة البحث =================
+        // دالة المزامنة السحابية إلى Firebase
+        function syncToFirebase() {
+            localStorage.setItem('alata_beneficiaries', JSON.stringify(beneficiaries));
+            localStorage.setItem('alata_grants', JSON.stringify(grants));
+            localStorage.setItem('alata_logs', JSON.stringify(distributionLogs));
+
+            if (window.firebaseDB && window.firebaseRef && window.firebaseSet) {
+                window.firebaseSet(window.firebaseRef(window.firebaseDB, 'atp_data'), {
+                    beneficiaries: beneficiaries,
+                    grants: grants,
+                    distributionLogs: distributionLogs,
+                    lastUpdated: new Date().toISOString()
+                }).catch(err => {
+                    console.error("خطأ أثناء الرفع السحابي:", err);
+                });
+            }
+        }
+
+        // تطبيع الأسماء لمنع التكرار ودقة البحث
         function normalizeArabic(text) {
             if (!text) return '';
             return text.toString()
@@ -399,7 +489,7 @@
 
         function getFullBackupData() {
             return {
-                version: '1.1',
+                version: '1.2',
                 exportDate: new Date().toISOString(),
                 beneficiaries,
                 grants,
@@ -434,8 +524,8 @@
 
         async function uploadBackupToGoogleDrive() {
             const clientId = getGoogleClientId();
-            if (!clientId) return alert('أدخل معرّف عميل Google (Client ID) أولًا. لا يمكن لصفحة HTML ثابتة رفع الملفات إلى Drive دون OAuth.');
-            if (!window.google?.accounts?.oauth2) return alert('تعذر تحميل خدمة تسجيل الدخول إلى Google. تحقق من الاتصال بالإنترنت ثم أعد المحاولة.');
+            if (!clientId) return alert('أدخل معرّف عميل Google (Client ID) أولًا.');
+            if (!window.google?.accounts?.oauth2) return alert('تعذر تحميل خدمة تسجيل الدخول إلى Google. تحقق من الاتصال بالإنترنت.');
 
             const tokenClient = google.accounts.oauth2.initTokenClient({
                 client_id: clientId,
@@ -462,7 +552,7 @@
                         alert(`تم رفع النسخة الاحتياطية مباشرة إلى Google Drive بنجاح.\nاسم الملف: ${uploaded.name}`);
                     } catch (error) {
                         console.error(error);
-                        alert('فشل رفع النسخة إلى Google Drive. تحقق من Client ID وإعدادات Google Cloud وDrive API.');
+                        alert('فشل رفع النسخة إلى Google Drive. تحقق من Client ID وإعدادات Google Cloud.');
                     }
                 }
             });
@@ -481,16 +571,13 @@
                         return alert('ملف النسخة الاحتياطية غير صالح أو تالف.');
                     }
 
-                    if (confirm(`الملف يحتوي على:\n- ${parsed.beneficiaries.length} مستفيد\n- ${parsed.grants.length} عطية\n- ${parsed.distributionLogs.length} حركة صرف\nهل ترغب في استبدال البيانات الحالية بهذه النسخة؟`)) {
+                    if (confirm(`الملف يحتوي على:\n- ${parsed.beneficiaries.length} مستفيد\n- ${parsed.grants.length} عطية\n- ${parsed.distributionLogs.length} حركة صرف\nهل ترغب في استبدال البيانات الحالية بهذه النسخة ورفعها للسحابة؟`)) {
                         beneficiaries = parsed.beneficiaries;
                         grants = parsed.grants;
                         distributionLogs = parsed.distributionLogs;
 
-                        localStorage.setItem('alata_beneficiaries', JSON.stringify(beneficiaries));
-                        localStorage.setItem('alata_grants', JSON.stringify(grants));
-                        localStorage.setItem('alata_logs', JSON.stringify(distributionLogs));
-
-                        alert('تم استرجاع كافة البيانات بنجاح!');
+                        syncToFirebase();
+                        alert('تم استرجاع كافة البيانات ومزامنتها بنجاح!');
                         closeBackupModal();
                         location.reload();
                     }
@@ -577,7 +664,7 @@
                         addedCount++;
                     }
 
-                    localStorage.setItem('alata_beneficiaries', JSON.stringify(beneficiaries));
+                    syncToFirebase();
                     alert(`تم استيراد (${addedCount}) مستفيد بنجاح.\nتم تجاهل (${skippedCount}) اسم مكرر تلقائياً.`);
                     renderBeneficiaries();
                     updateCategoryDropdowns();
@@ -621,7 +708,7 @@
                 alert('تم تسجيل المستفيد بنجاح.');
             }
 
-            localStorage.setItem('alata_beneficiaries', JSON.stringify(beneficiaries));
+            syncToFirebase();
             resetBenForm();
             renderBeneficiaries();
             updateCategoryDropdowns();
@@ -659,7 +746,7 @@
         function deleteBeneficiary(id) {
             if (!confirm('هل أنت متأكد من حذف هذا المستفيد؟')) return;
             beneficiaries = beneficiaries.filter(b => b.id != id);
-            localStorage.setItem('alata_beneficiaries', JSON.stringify(beneficiaries));
+            syncToFirebase();
             renderBeneficiaries();
             updateCategoryDropdowns();
         }
@@ -740,7 +827,7 @@
                 alert('تم حفظ العطية.');
             }
 
-            localStorage.setItem('alata_grants', JSON.stringify(grants));
+            syncToFirebase();
             resetGrantForm();
             renderGrants();
         }
@@ -778,7 +865,7 @@
         function deleteGrant(id) {
             if (!confirm('حذف هذه العطية لا يحذف سجلات الصرف السابقة. هل ترغب بالاستمرار؟')) return;
             grants = grants.filter(g => g.id != id);
-            localStorage.setItem('alata_grants', JSON.stringify(grants));
+            syncToFirebase();
             renderGrants();
         }
 
@@ -901,7 +988,7 @@
                 rawDate: todayISO
             });
 
-            localStorage.setItem('alata_logs', JSON.stringify(distributionLogs));
+            syncToFirebase();
             alert(`تم صرف (${amount}) لـ (${ben.name}) بنجاح.`);
             loadDistributionList();
         }
@@ -944,7 +1031,7 @@
                 });
             });
 
-            localStorage.setItem('alata_logs', JSON.stringify(distributionLogs));
+            syncToFirebase();
             alert(`تم حفظ الصرف لعدد (${checkedBoxes.length}) مستفيد.`);
             showSection('reportsSection');
         }
@@ -1015,7 +1102,6 @@
                 const benCat = ben.category || '';
                 const logDate = log.rawDate || '';
 
-                // مطابقة بالاسم أو جزء منه
                 if (searchKeyword && !normalizeArabic(benName).includes(searchKeyword)) return false;
                 if (fGrant && grantName !== fGrant) return false;
                 if (fDonor && donorName !== fDonor) return false;
@@ -1076,7 +1162,7 @@
             const newAmount = prompt('أدخل الكمية أو المبلغ الجديد:', log.amount);
             if (newAmount !== null && newAmount.trim() !== '') {
                 log.amount = Number(newAmount);
-                localStorage.setItem('alata_logs', JSON.stringify(distributionLogs));
+                syncToFirebase();
                 renderFilteredLogs();
             }
         }
@@ -1084,7 +1170,7 @@
         function deleteLog(logId) {
             if (!confirm('هل تريد إلغاء حركة الصرف هذه للمستفيد؟')) return;
             distributionLogs = distributionLogs.filter(l => l.id != logId);
-            localStorage.setItem('alata_logs', JSON.stringify(distributionLogs));
+            syncToFirebase();
             renderFilteredLogs();
         }
 
@@ -1104,12 +1190,10 @@
                 jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
             };
 
-            // إنشاء ملف PDF وتنزيله لضمان وجوده في جهاز المستخدم
             try {
                 const pdfBlob = await html2pdf().set(opt).from(element).outputPdf('blob');
                 const file = new File([pdfBlob], fileName, { type: 'application/pdf' });
 
-                // محاولة المشاركة النظامية المباشرة إذا كان المتصفح يدعمها
                 if (navigator.canShare && navigator.canShare({ files: [file] })) {
                     try {
                         await navigator.share({
@@ -1123,17 +1207,15 @@
                     }
                 }
 
-                // لا يمكن لـ WhatsApp Web قبول ملف PDF من رابط wa.me؛ نستخدم مشاركة النظام
-                // مباشرة، ونتجنب تنزيل الملف تلقائيًا. يعمل ذلك على Android/iOS والمتصفحات الداعمة.
                 const filterDesc = document.getElementById('activeFilterDesc').innerText;
                 const totalAmount = currentFilteredLogs.reduce((sum, item) => sum + Number(item.amount), 0);
                 const wpMsg = `📄 *تقرير صرف العطايا والمساعدات*\n📅 التاريخ: ${new Date().toLocaleDateString('ar-YE')}\n${filterDesc !== 'عرض شامل بدون تصفية' ? '🏷️ ' + filterDesc + '\n' : ''}👥 عدد المستفيدين: ${currentFilteredLogs.length}\n📦 إجمالي المبالغ/الكميات: ${totalAmount}`;
-                alert('هذا المتصفح لا يدعم إرفاق PDF مباشرة. سيتم فتح واتساب بالنص فقط دون تنزيل الملف؛ استخدم هاتفًا يدعم المشاركة النظامية لإرسال PDF كمرفق.');
+                alert('هذا المتصفح لا يدعم إرفاق PDF مباشرة. سيتم فتح واتساب بالنص فقط؛ استخدم هاتفاً يدعم مشاركة النظام لإرسال PDF كمرفق.');
                 window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(wpMsg)}`, '_blank');
 
             } catch (err) {
                 console.error(err);
-                alert('تعذر إنشاء أو مشاركة ملف PDF. لم يتم تنزيل أي ملف تلقائيًا.');
+                alert('تعذر إنشاء أو مشاركة ملف PDF.');
             }
         }
 
