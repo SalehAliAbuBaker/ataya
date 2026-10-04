@@ -60,7 +60,7 @@
         setTimeout(() => { document.documentElement.style.visibility = 'visible'; }, 8000);
     </script>
 </head>
-<body data-page="beneficiaries" class="bg-slate-50 min-h-screen text-slate-800 pb-20">
+<body class="bg-slate-50 min-h-screen text-slate-800 pb-20">
 
     <!-- Header -->
     <header class="bg-indigo-700 text-white p-3 shadow-md sticky top-0 z-20">
@@ -94,12 +94,12 @@
         
         <!-- Navigation Menu -->
         <nav class="grid grid-cols-2 md:grid-cols-6 gap-2 mb-4 no-print text-xs md:text-sm font-medium">
-            <a href="index.html" id="nav-beneficiariesSection" class="nav-btn bg-white py-2.5 px-1 rounded-lg border border-slate-200 text-slate-700 shadow-sm text-center">المستفيدون</a>
-            <a href="grants.html" id="nav-grantsSection" class="nav-btn bg-white py-2.5 px-1 rounded-lg border border-slate-200 text-slate-700 shadow-sm text-center">العطايا</a>
-            <a href="distribute.html" id="nav-distributeSection" class="nav-btn bg-white py-2.5 px-1 rounded-lg border border-slate-200 text-slate-700 shadow-sm text-center">الصرف الميداني</a>
-            <a href="reports.html" id="nav-reportsSection" class="nav-btn bg-white py-2.5 px-1 rounded-lg border border-slate-200 text-slate-700 shadow-sm text-center">التقارير</a>
-            <a href="statements.html" id="nav-statementsSection" class="nav-btn bg-white py-2.5 px-1 rounded-lg border border-slate-200 text-slate-700 shadow-sm text-center">الكشوفات</a>
-            <a href="permissions.html" id="nav-permissionsSection" class="nav-btn hidden bg-white py-2.5 px-1 rounded-lg border border-amber-200 text-amber-800 shadow-sm text-center">صلاحيات المستخدمين</a>
+            <button onclick="showSection('beneficiariesSection')" id="nav-beneficiariesSection" class="nav-btn bg-white py-2.5 px-1 rounded-lg border border-slate-200 text-slate-700 shadow-sm text-center">المستفيدون</button>
+            <button onclick="showSection('grantsSection')" id="nav-grantsSection" class="nav-btn bg-white py-2.5 px-1 rounded-lg border border-slate-200 text-slate-700 shadow-sm text-center">العطايا</button>
+            <button onclick="showSection('distributeSection')" id="nav-distributeSection" class="nav-btn bg-white py-2.5 px-1 rounded-lg border border-slate-200 text-slate-700 shadow-sm text-center">الصرف الميداني</button>
+            <button onclick="showSection('reportsSection')" id="nav-reportsSection" class="nav-btn bg-white py-2.5 px-1 rounded-lg border border-slate-200 text-slate-700 shadow-sm text-center">التقارير</button>
+            <button onclick="showSection('statementsSection')" id="nav-statementsSection" class="nav-btn bg-white py-2.5 px-1 rounded-lg border border-slate-200 text-slate-700 shadow-sm text-center">الكشوفات</button>
+            <button onclick="showSection('permissionsSection')" id="nav-permissionsSection" class="nav-btn hidden bg-white py-2.5 px-1 rounded-lg border border-amber-200 text-amber-800 shadow-sm text-center">صلاحيات المستخدمين</button>
         </nav>
 
         <!-- ================= إدارة صلاحيات المستخدمين ================= -->
@@ -712,9 +712,9 @@
         }
 
         function showSection(sectionId) {
-            if (sectionId === 'permissionsSection' && !permissionState.admin) { alert('هذه الصفحة متاحة لمدير الصلاحيات فقط.'); return location.replace('index.html'); }
-            if (!permissionState.view) { alert('ليس لديك صلاحية الاطلاع.'); return location.replace('index.html'); }
-            if ((sectionId === 'reportsSection' || sectionId === 'statementsSection') && !permissionState.admin && !permissionState.reports) { alert('ليس لديك صلاحية عرض التقارير والكشوفات.'); return location.replace('index.html'); }
+            if (sectionId === 'permissionsSection' && !permissionState.admin) return alert('هذه الصفحة متاحة لمدير الصلاحيات فقط.');
+            if (!permissionState.view) return alert('ليس لديك صلاحية الاطلاع.');
+            if ((sectionId === 'reportsSection' || sectionId === 'statementsSection') && !permissionState.admin && !permissionState.reports) return alert('ليس لديك صلاحية عرض التقارير والكشوفات.');
             document.querySelectorAll('.hidden-section').forEach(s => s.classList.remove('active-section'));
             document.querySelectorAll('.nav-btn').forEach(b => {
                 b.classList.remove('bg-indigo-600', 'text-white');
@@ -1324,7 +1324,7 @@
 
             syncToFirebase();
             alert(`تم حفظ الصرف لعدد (${checkedBoxes.length - skipped}) مستفيد.` + (skipped ? `\nتم تخطي ${skipped} لاستلامهم هذه العطية مسبقاً.` : ''));
-            window.location.href = 'reports.html';
+            showSection('reportsSection');
         }
 
         // ================= التقارير والمشاركة =================
@@ -1981,8 +1981,7 @@
         }
 
         setDefaultDates();
-        const pageSection = document.body.dataset.page || 'beneficiaries';
-        showSection(pageSection + 'Section');
+        showSection('beneficiariesSection');
         updateCategoryDropdowns();
     </script>
 </body>
