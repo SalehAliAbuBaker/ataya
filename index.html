@@ -11,8 +11,9 @@
     <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
         body { font-family: system-ui, -apple-system, sans-serif; background-color: #f8fafc; }
-        .hidden-section { display: none; }
-        .active-section { display: block; }
+        /* إخفاء جميع الأقسام افتراضياً وإظهار القسم النشط فقط */
+        .app-section { display: none !important; }
+        .app-section.active-section { display: block !important; }
         input[type="date"] { direction: rtl; text-align: right; }
         @media print {
             nav, header, .no-print { display: none !important; }
@@ -94,16 +95,16 @@
         
         <!-- Navigation Menu -->
         <nav class="grid grid-cols-2 md:grid-cols-6 gap-2 mb-4 no-print text-xs md:text-sm font-medium">
-            <button onclick="showSection('beneficiariesSection')" id="nav-beneficiariesSection" class="nav-btn bg-white py-2.5 px-1 rounded-lg border border-slate-200 text-slate-700 shadow-sm text-center">المستفيدون</button>
-            <button onclick="showSection('grantsSection')" id="nav-grantsSection" class="nav-btn bg-white py-2.5 px-1 rounded-lg border border-slate-200 text-slate-700 shadow-sm text-center">العطايا</button>
-            <button onclick="showSection('distributeSection')" id="nav-distributeSection" class="nav-btn bg-white py-2.5 px-1 rounded-lg border border-slate-200 text-slate-700 shadow-sm text-center">الصرف الميداني</button>
-            <button onclick="showSection('reportsSection')" id="nav-reportsSection" class="nav-btn bg-white py-2.5 px-1 rounded-lg border border-slate-200 text-slate-700 shadow-sm text-center">التقارير</button>
-            <button onclick="showSection('statementsSection')" id="nav-statementsSection" class="nav-btn bg-white py-2.5 px-1 rounded-lg border border-slate-200 text-slate-700 shadow-sm text-center">الكشوفات</button>
-            <button onclick="showSection('permissionsSection')" id="nav-permissionsSection" class="nav-btn hidden bg-white py-2.5 px-1 rounded-lg border border-amber-200 text-amber-800 shadow-sm text-center">صلاحيات المستخدمين</button>
+            <button type="button" onclick="showSection('beneficiariesSection')" id="nav-beneficiariesSection" class="nav-btn bg-indigo-600 text-white py-2.5 px-1 rounded-lg border border-slate-200 shadow-sm text-center transition">المستفيدون</button>
+            <button type="button" onclick="showSection('grantsSection')" id="nav-grantsSection" class="nav-btn bg-white py-2.5 px-1 rounded-lg border border-slate-200 text-slate-700 shadow-sm text-center transition">العطايا</button>
+            <button type="button" onclick="showSection('distributeSection')" id="nav-distributeSection" class="nav-btn bg-white py-2.5 px-1 rounded-lg border border-slate-200 text-slate-700 shadow-sm text-center transition">الصرف الميداني</button>
+            <button type="button" onclick="showSection('reportsSection')" id="nav-reportsSection" class="nav-btn bg-white py-2.5 px-1 rounded-lg border border-slate-200 text-slate-700 shadow-sm text-center transition">التقارير</button>
+            <button type="button" onclick="showSection('statementsSection')" id="nav-statementsSection" class="nav-btn bg-white py-2.5 px-1 rounded-lg border border-slate-200 text-slate-700 shadow-sm text-center transition">الكشوفات</button>
+            <button type="button" onclick="showSection('permissionsSection')" id="nav-permissionsSection" class="nav-btn hidden bg-white py-2.5 px-1 rounded-lg border border-amber-200 text-amber-800 shadow-sm text-center transition">صلاحيات المستخدمين</button>
         </nav>
 
         <!-- ================= إدارة صلاحيات المستخدمين ================= -->
-        <section id="permissionsSection" class="hidden-section">
+        <section id="permissionsSection" class="app-section">
             <div class="bg-amber-50 border border-amber-200 p-3 rounded-xl mb-4 text-xs">
                 <h2 class="font-bold text-amber-900 text-base mb-1">إدارة صلاحيات المستخدمين</h2>
                 <p class="text-amber-800 leading-6">أدخل البريد المستخدم في فايربيس (أو اسم المستخدم قبل ‎@ataya.local‎)، ثم اختر الصلاحيات. الصلاحية الافتراضية للمستخدم الجديد هي الاطلاع فقط.</p>
@@ -173,7 +174,7 @@
         </div>
 
         <!-- ================= 1. قسم المستفيدين ================= -->
-        <section id="beneficiariesSection" class="hidden-section">
+        <section id="beneficiariesSection" class="app-section active-section">
             <div class="bg-indigo-50 border border-indigo-200 p-3 rounded-xl mb-4 flex justify-between items-center text-xs">
                 <div>
                     <span class="font-bold text-indigo-900 block">استيراد أسماء من Excel</span>
@@ -240,7 +241,7 @@
         </section>
 
         <!-- ================= 2. قسم العطايا ================= -->
-        <section id="grantsSection" class="hidden-section">
+        <section id="grantsSection" class="app-section">
             <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 mb-4">
                 <div class="flex justify-between items-center mb-3">
                     <h2 id="grantFormTitle" class="text-base font-bold text-indigo-700">تسجيل عطية جديدة</h2>
@@ -284,7 +285,7 @@
         </section>
 
         <!-- ================= 3. قسم الصرف والتأشير السريع والبحث ================= -->
-        <section id="distributeSection" class="hidden-section">
+        <section id="distributeSection" class="app-section">
             <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 mb-4">
                 <h2 class="text-base font-bold mb-3 text-indigo-700">تسليم العطايا والبحث الفوري</h2>
                 
@@ -323,7 +324,7 @@
         </section>
 
         <!-- ================= 4. قسم التقارير المحدث ================= -->
-        <section id="reportsSection" class="hidden-section">
+        <section id="reportsSection" class="app-section">
             <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 mb-4 no-print">
                 <div class="flex justify-between items-center mb-3">
                     <h2 class="text-sm font-bold text-indigo-700 flex items-center gap-1">
@@ -434,7 +435,7 @@
         </section>
 
         <!-- ================= 5. كشوفات العطايا (تجميعي) ================= -->
-        <section id="statementsSection" class="hidden-section">
+        <section id="statementsSection" class="app-section">
             <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
                 <h2 class="text-base font-bold mb-1 text-indigo-700">كشوفات العطايا</h2>
                 <p class="text-[11px] text-slate-500 mb-3">كشف تجميعي لكل عطية: قائمة المستفيدين وإجمالي الكميات، مع الطباعة وPDF والمشاركة.</p>
@@ -638,9 +639,10 @@
         let distributionLogs = JSON.parse(localStorage.getItem('alata_logs')) || [];
         let currentFilteredLogs = [];
         let permissionRecords = {};
-        let permissionState = { view: true, add: false, edit: false, reports: false, admin: false, bootstrap: false };
+        let permissionState = { view: true, add: true, edit: true, reports: true, admin: true, bootstrap: true };
         const permissionKey = value => String(value || '').trim().toLowerCase().replace(/[.#$\[\]\/]/g, '_').replace(/@/g, '_at_');
         const normalizePermissionEmail = value => { const v = String(value || '').trim().toLowerCase(); return v.includes('@') ? v : `${v}@ataya.local`; };
+
         function currentPermission() {
             const email = window.currentUserEmail || '';
             const all = Object.values(window.fbPermissionRecords || {});
@@ -651,34 +653,80 @@
             const bootstrap = !all.length || !hasAdmin;
             return { view: true, add: bootstrap, edit: bootstrap, reports: bootstrap, admin: bootstrap, bootstrap };
         }
-        function can(action) { const p = permissionState; return action === 'view' ? p.view : p.admin || p[action] === true; }
-        function requirePermission(action) { if (can(action)) return true; alert(action === 'add' ? 'ليس لديك صلاحية الإضافة.' : action === 'edit' ? 'ليس لديك صلاحية التعديل أو الحذف.' : 'ليس لديك صلاحية الاطلاع.'); return false; }
-        window.setPermissionRecords = records => { window.fbPermissionRecords = records || {}; permissionRecords = window.fbPermissionRecords; permissionState = currentPermission(); applyPermissionUI(); renderPermissions(); };
+
+        function can(action) {
+            const p = permissionState;
+            return action === 'view' ? p.view : p.admin || p[action] === true;
+        }
+
+        function requirePermission(action) {
+            if (can(action)) return true;
+            alert(action === 'add' ? 'ليس لديك صلاحية الإضافة.' : action === 'edit' ? 'ليس لديك صلاحية التعديل أو الحذف.' : 'ليس لديك صلاحية الاطلاع.');
+            return false;
+        }
+
+        window.setPermissionRecords = records => {
+            window.fbPermissionRecords = records || {};
+            permissionRecords = window.fbPermissionRecords;
+            permissionState = currentPermission();
+            applyPermissionUI();
+            renderPermissions();
+        };
+
+        // تحديث واجهة الأزرار فقط دون إظهار جميع الأقسام دفعة واحدة
         function applyPermissionUI() {
-            document.querySelectorAll('[data-permission]').forEach(el => { const ok = can(el.dataset.permission); el.classList.toggle('hidden', !ok); if ('disabled' in el) el.disabled = !ok; });
+            document.querySelectorAll('[data-permission]').forEach(el => {
+                const ok = can(el.dataset.permission);
+                el.classList.toggle('hidden', !ok);
+                if ('disabled' in el) el.disabled = !ok;
+            });
+
             const adminNav = document.getElementById('nav-permissionsSection');
             if (adminNav) adminNav.classList.toggle('hidden', !permissionState.admin);
+
             const reportsAllowed = permissionState.admin || permissionState.reports;
-            ['beneficiariesSection','grantsSection','distributeSection'].forEach(id => { const el = document.getElementById(id); if (el) el.classList.toggle('hidden-section', !permissionState.view); });
-            ['reportsSection','statementsSection'].forEach(id => { const el = document.getElementById(id); if (el) el.classList.toggle('hidden-section', !permissionState.view || !reportsAllowed); });
-            ['nav-reportsSection','nav-statementsSection'].forEach(id => { const el = document.getElementById(id); if (el) el.classList.toggle('hidden', !permissionState.view || !reportsAllowed); });
+            ['nav-reportsSection', 'nav-statementsSection'].forEach(id => {
+                const btn = document.getElementById(id);
+                if (btn) btn.classList.toggle('hidden', !permissionState.view || !reportsAllowed);
+            });
+
+            ['nav-beneficiariesSection', 'nav-grantsSection', 'nav-distributeSection'].forEach(id => {
+                const btn = document.getElementById(id);
+                if (btn) btn.classList.toggle('hidden', !permissionState.view);
+            });
+
+            // إذا كان المستخدم يقف على قسم لم تعد له صلاحية عليه، نعيده لقسم المستفيدين
+            const activeSec = document.querySelector('.app-section.active-section');
+            if (!activeSec) {
+                showSection('beneficiariesSection');
+            } else if (activeSec.id === 'permissionsSection' && !permissionState.admin) {
+                showSection('beneficiariesSection');
+            } else if ((activeSec.id === 'reportsSection' || activeSec.id === 'statementsSection') && !reportsAllowed) {
+                showSection('beneficiariesSection');
+            }
         }
+
         function renderPermissions() {
             const list = document.getElementById('permissionsList'); if (!list) return;
             if (!permissionState.admin) { list.innerHTML = ''; return; }
             const rows = Object.values(window.fbPermissionRecords || {});
             list.innerHTML = rows.length ? rows.map(r => `<div class="flex flex-wrap justify-between items-center gap-2 p-2 rounded-lg bg-slate-50 border border-slate-200 text-xs"><b dir="ltr">${r.email}</b><span>${r.admin ? 'مدير' : [r.view?'اطلاع بيانات':'',r.add?'إضافة':'',r.edit?'تعديل':'',r.reports?'تقارير وكشوفات':''].filter(Boolean).join('، ') || 'بدون صلاحيات'}</span><button onclick="removeUserPermission('${permissionKey(r.email)}')" class="text-rose-600 hover:underline">حذف</button></div>`).join('') : '<p class="text-xs text-slate-400">لا توجد صلاحيات مضافة بعد.</p>';
         }
+
         async function saveUserPermission(e) {
             e.preventDefault(); if (!requirePermission('edit')) return;
             const email = normalizePermissionEmail(document.getElementById('permissionEmail').value); if (!email || !email.includes('@')) return;
             const record = { email, view: document.getElementById('permissionView').checked, add: document.getElementById('permissionAdd').checked, edit: document.getElementById('permissionEdit').checked, admin: document.getElementById('permissionAdmin').checked, reports: document.getElementById('permissionReports').checked, updatedBy: loggedUser, updatedAt: new Date().toISOString() };
             const updates = {}; updates[`permissions/${permissionKey(email)}`] = record;
-            // عند الإعداد الأول، احفظ الحساب الحالي كمدير حتى لا يفقد مدير النظام صلاحياته.
             if (permissionState.bootstrap && window.currentUserEmail) updates[`permissions/${permissionKey(window.currentUserEmail)}`] = { email: window.currentUserEmail, view: true, add: true, edit: true, reports: true, admin: true, updatedBy: loggedUser, updatedAt: new Date().toISOString() };
             try { await window.fbPermissionUpdate(updates); alert('تم حفظ صلاحيات المستخدم.'); e.target.reset(); document.getElementById('permissionView').checked = true; } catch (_) { alert('تعذر حفظ الصلاحيات في فايربيس.'); }
         }
-        async function removeUserPermission(k) { if (!requirePermission('edit') || !confirm('حذف صلاحيات هذا المستخدم؟')) return; const updates = {}; updates[`permissions/${k}`] = null; try { await window.fbPermissionUpdate(updates); } catch (_) { alert('تعذر حذف الصلاحية.'); } }
+
+        async function removeUserPermission(k) {
+            if (!requirePermission('edit') || !confirm('حذف صلاحيات هذا المستخدم؟')) return;
+            const updates = {}; updates[`permissions/${k}`] = null;
+            try { await window.fbPermissionUpdate(updates); } catch (_) { alert('تعذر حذف الصلاحية.'); }
+        }
 
         function logoutUser() {
             if (window.fbSignOut) window.fbSignOut().finally(() => window.location.replace('login.html'));
@@ -711,28 +759,49 @@
                 .toLowerCase();
         }
 
+        // دالة التنقل بين الأقسام عبر الأزرار
         function showSection(sectionId) {
-            if (sectionId === 'permissionsSection' && !permissionState.admin) return alert('هذه الصفحة متاحة لمدير الصلاحيات فقط.');
-            if (!permissionState.view) return alert('ليس لديك صلاحية الاطلاع.');
-            if ((sectionId === 'reportsSection' || sectionId === 'statementsSection') && !permissionState.admin && !permissionState.reports) return alert('ليس لديك صلاحية عرض التقارير والكشوفات.');
-            document.querySelectorAll('.hidden-section').forEach(s => s.classList.remove('active-section'));
+            if (sectionId === 'permissionsSection' && !permissionState.admin) {
+                return alert('هذه الصفحة متاحة لمدير الصلاحيات فقط.');
+            }
+            if (!permissionState.view) {
+                return alert('ليس لديك صلاحية الاطلاع.');
+            }
+            if ((sectionId === 'reportsSection' || sectionId === 'statementsSection') && !permissionState.admin && !permissionState.reports) {
+                return alert('ليس لديك صلاحية عرض التقارير والكشوفات.');
+            }
+
+            // إخفاء جميع الأقسام
+            document.querySelectorAll('.app-section').forEach(s => {
+                s.classList.remove('active-section');
+            });
+
+            // إعادة تنسيق جميع الأزرار للوضع العادي
             document.querySelectorAll('.nav-btn').forEach(b => {
                 b.classList.remove('bg-indigo-600', 'text-white');
                 b.classList.add('bg-white', 'text-slate-700');
             });
 
-            document.getElementById(sectionId).classList.add('active-section');
+            // إظهار القسم المطلوب فقط
+            const targetSection = document.getElementById(sectionId);
+            if (targetSection) {
+                targetSection.classList.add('active-section');
+            }
+
+            // تمييز الزر النشط
             const activeBtn = document.getElementById('nav-' + sectionId);
             if (activeBtn) {
                 activeBtn.classList.remove('bg-white', 'text-slate-700');
                 activeBtn.classList.add('bg-indigo-600', 'text-white');
             }
 
+            // تحديث محتوى القسم المفتوح
             if (sectionId === 'beneficiariesSection') renderBeneficiaries();
             if (sectionId === 'grantsSection') renderGrants();
-            if (sectionId === 'statementsSection') renderStatementsList();
             if (sectionId === 'distributeSection') initDistributeSection();
             if (sectionId === 'reportsSection') initReportsSection();
+            if (sectionId === 'statementsSection') renderStatementsList();
+            if (sectionId === 'permissionsSection') renderPermissions();
         }
 
         // ================= النسخ الاحتياطي =================
@@ -1059,7 +1128,7 @@
                 const currentDistVal = distCatSelect.value;
                 distCatSelect.innerHTML = '<option value="الكل">كل الفئات</option>' + 
                     categories.map(c => `<option value="${c}">${c}</option>`).join('');
-                distCatSelect.value = currentDistVal;
+                distCatSelect.value = currentDistVal || 'الكل';
             }
 
             const filterCatSelect = document.getElementById('filterCategory');
@@ -1067,7 +1136,7 @@
                 const currentFilterVal = filterCatSelect.value;
                 filterCatSelect.innerHTML = '<option value="">جميع الفئات</option>' + 
                     categories.map(c => `<option value="${c}">${c}</option>`).join('');
-                filterCatSelect.value = currentFilterVal;
+                filterCatSelect.value = currentFilterVal || '';
             }
         }
 
@@ -1169,6 +1238,7 @@
             const grantSelect = document.getElementById('distGrantSelect');
             if (grants.length === 0) {
                 grantSelect.innerHTML = `<option value="">لا توجد عطايا مسجلة</option>`;
+                document.getElementById('distributeList').innerHTML = `<p class="text-center text-xs text-slate-400 py-6">اختر عطية للمتابعة.</p>`;
                 return;
             }
             grantSelect.innerHTML = grants.map(g => `<option value="${g.id}">${g.name} (${g.date})</option>`).join('');
@@ -1188,9 +1258,11 @@
             }
 
             const activeGrant = grants.find(g => g.id == grantId);
+            if (!activeGrant) return;
+
             let filtered = beneficiaries;
 
-            if (category !== 'الكل') {
+            if (category && category !== 'الكل') {
                 filtered = filtered.filter(b => b.category === category);
             }
 
@@ -1227,9 +1299,9 @@
                             </span>
                             <div class="flex items-center gap-1">
                                 <input type="number" id="quota-${b.id}" value="${activeGrant.defaultQuota}" min="1" ${totalTaken > 0 ? 'disabled' : ''} class="disabled:opacity-40 w-14 p-1 text-center font-bold border border-slate-300 rounded text-xs focus:ring-1 focus:ring-indigo-500">
-                                <button data-permission="add" onclick="quickDistributeOne(${b.id})" ${totalTaken > 0 ? 'disabled' : ''} class="disabled:opacity-40 disabled:pointer-events-none bg-indigo-50 hover:bg-indigo-600 hover:text-white text-indigo-700 font-semibold px-2 py-1 rounded text-[11px] border border-indigo-200 transition">
+                                ${can('add') ? `<button onclick="quickDistributeOne(${b.id})" ${totalTaken > 0 ? 'disabled' : ''} class="disabled:opacity-40 disabled:pointer-events-none bg-indigo-50 hover:bg-indigo-600 hover:text-white text-indigo-700 font-semibold px-2 py-1 rounded text-[11px] border border-indigo-200 transition">
                                     صرف فوري
-                                </button>
+                                </button>` : ''}
                             </div>
                         </div>
                     </div>
@@ -1264,7 +1336,7 @@
                 amount: Number(amount),
                 timestamp: dateStr,
                 rawDate: todayISO,
-                createdByUser: loggedUser // توثيق اسم المستخدم
+                createdByUser: loggedUser
             });
 
             syncToFirebase();
@@ -1281,7 +1353,6 @@
             const enabled = document.querySelectorAll('.dist-check:not(:disabled)').length;
             const count = document.querySelectorAll('.dist-check:checked:not(:disabled)').length;
             document.getElementById('selectionSummary').innerText = `تم تحديد: ${count} أفراد`;
-            // حالة خانة "تحديد الكل": مكتملة / جزئية / فارغة
             const master = document.getElementById('selectAllCheck');
             if (master) {
                 master.disabled = enabled === 0;
@@ -1318,13 +1389,17 @@
                     amount: Number(amount),
                     timestamp: dateStr,
                     rawDate: todayISO,
-                    createdByUser: loggedUser // توثيق اسم المستخدم
+                    createdByUser: loggedUser
                 });
             });
 
             syncToFirebase();
             alert(`تم حفظ الصرف لعدد (${checkedBoxes.length - skipped}) مستفيد.` + (skipped ? `\nتم تخطي ${skipped} لاستلامهم هذه العطية مسبقاً.` : ''));
-            showSection('reportsSection');
+            if (permissionState.admin || permissionState.reports) {
+                showSection('reportsSection');
+            } else {
+                loadDistributionList();
+            }
         }
 
         // ================= التقارير والمشاركة =================
@@ -1558,7 +1633,6 @@
         }
 
         // ================= كشوفات العطايا (الكشف التجميعي) =================
-        // تاريخ اليوم بالتوقيت المحلي (وليس UTC)
         function todayLocal() {
             const d = new Date();
             return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -1569,7 +1643,6 @@
                 if (el && !el.value) el.value = todayLocal();
             });
         }
-        // الضغط على أي موضع في خانة التاريخ يفتح التقويم
         document.addEventListener('click', e => {
             if (e.target && e.target.matches && e.target.matches('input[type="date"]')) {
                 try { e.target.showPicker(); } catch (_) {}
@@ -1581,7 +1654,6 @@
         let currentStatementId = null;
         let pendingDeleteGrantId = null;
 
-        // رقم مستند تلقائي بصيغة: ع-2026-001 (يتسلسل لكل سنة)
         function nextDocNo(dateStr) {
             const y = (dateStr || '').slice(0, 4) || String(new Date().getFullYear());
             const prefix = `ع-${y}-`;
@@ -1592,7 +1664,6 @@
             return prefix + String(max + 1).padStart(3, '0');
         }
 
-        // إعطاء رقم للعطايا القديمة التي لا تحمل رقماً (مرة واحدة)
         function ensureDocNos() {
             let changed = false;
             [...grants].sort((a, b) => Number(a.id) - Number(b.id)).forEach(g => {
@@ -1619,7 +1690,6 @@
             };
         }
 
-        // خانتا التوقيع (تُستخدم في كل الكشوفات)
         function signatureBlockHTML() {
             return `<div class="stmt-sign">
                 <div><b>1. إعداد المختص:</b><p>الاسم: <i class="ln"></i></p><p>التوقيع: <i class="ln"></i></p></div>
@@ -1627,7 +1697,6 @@
             </div>`;
         }
 
-        // ---------- بناء صفحات الكشف (ترويسة متكررة + ترقيم) ----------
         const STMT_THEAD = `<thead><tr>
             <th style="width:6%">م</th><th style="width:32%">اسم المستفيد</th><th style="width:20%">المنطقة</th>
             <th style="width:12%">عدد الأفراد</th><th style="width:16%">الفئة</th><th style="width:14%">الكمية / المبلغ</th>
@@ -1660,7 +1729,6 @@
             </div>`;
         }
 
-        // ترويسة مختصرة تتكرر في بقية الصفحات
         function statementCompactHTML(d) {
             const g = d.grant;
             return `<div class="stmt-compact">
@@ -1677,7 +1745,6 @@
             </tr>`;
         }
 
-        // يقيس ارتفاع الصفوف ثم يوزّعها على صفحات A4 ثابتة الارتفاع
         async function buildStatementPagesHTML(d) {
             try { await document.fonts.load('400 13px Tajawal'); await document.fonts.load('700 13px Tajawal'); } catch (e) {}
 
@@ -1687,7 +1754,6 @@
                 : [`<tr><td colspan="6" class="c" style="padding:18px;color:#64748b">لم تُصرف هذه العطية لأي مستفيد بعد.</td></tr>`];
             const tfoot = statementTfootHTML(d);
 
-            // 1) القياس
             const m = document.createElement('div');
             m.className = 'stmt-sheet';
             m.style.cssText = 'position:fixed;left:-10000px;top:0;visibility:hidden';
@@ -1705,7 +1771,6 @@
             const signH = h(m.querySelector('.stmt-sign'));
             m.remove();
 
-            // 2) التوزيع
             const pages = [];
             let cur = { rows: [], used: topH + GAP + theadH, tfoot: false, sign: false };
             rowH.forEach((rh, i) => {
@@ -1728,7 +1793,6 @@
                 pages.push({ rows: [], tfoot: true, sign: true });
             }
 
-            // 3) البناء
             const n = pages.length;
             const body = pages.map((p, pi) => {
                 const head = pi === 0 ? statementTopHTML(d) : statementCompactHTML(d);
@@ -1756,7 +1820,6 @@
             return t;
         }
 
-        // ---------- القائمة ----------
         function renderStatementsList() {
             ensureDocNos();
             const list = document.getElementById('statementsList');
@@ -1779,13 +1842,12 @@
                     </div>
                     <div class="flex gap-2 mt-2">
                         <button onclick="openStatement('${g.id}')" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-1.5 rounded-lg text-xs font-semibold">عرض الكشف</button>
-                        <button onclick="askDeleteStatement('${g.id}')" class="px-3 border border-rose-300 text-rose-600 hover:bg-rose-50 rounded-lg text-xs">حذف</button>
+                        ${can('edit') ? `<button onclick="askDeleteStatement('${g.id}')" class="px-3 border border-rose-300 text-rose-600 hover:bg-rose-50 rounded-lg text-xs">حذف</button>` : ''}
                     </div>
                 </div>`;
             }).join('');
         }
 
-        // ---------- العارض ----------
         function openStatement(id) {
             ensureDocNos();
             currentStatementId = id;
@@ -1815,7 +1877,6 @@
             currentStatementId = null;
         }
 
-        // ---------- الطباعة ----------
         async function printStatement() {
             try { await document.fonts.ready; } catch (e) {}
             document.body.classList.add('printing-statement');
@@ -1824,7 +1885,6 @@
             window.print();
         }
 
-        // ---------- PDF ----------
         async function makeStatementPdf() {
             const d = buildStatementData(currentStatementId);
             if (!d) throw new Error('العطية غير موجودة');
@@ -1880,7 +1940,6 @@
                         return;
                     } catch (e) { if (e.name === 'AbortError') return; }
                 }
-                // المتصفح لا يدعم مشاركة الملفات: ننزّل الملف ليرسله المستخدم يدوياً
                 const a = document.createElement('a');
                 a.href = URL.createObjectURL(blob);
                 a.download = fileName;
@@ -1891,7 +1950,6 @@
             });
         }
 
-        // ---------- النص / واتساب ----------
         async function copyText(t) {
             try { await navigator.clipboard.writeText(t); return true; }
             catch (e) {
@@ -1924,8 +1982,8 @@
             window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`, '_blank');
         }
 
-        // ---------- الحذف العام ----------
         function askDeleteStatement(id) {
+            if (!requirePermission("edit")) return;
             pendingDeleteGrantId = id || currentStatementId;
             const d = buildStatementData(pendingDeleteGrantId);
             if (!d) return;
@@ -1944,6 +2002,7 @@
         }
 
         async function confirmDeleteStatement() {
+            if (!requirePermission("edit")) return;
             const id = pendingDeleteGrantId;
             if (!id) return;
             grants = grants.filter(g => g.id != id);
