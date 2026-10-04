@@ -21,8 +21,9 @@
     <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
         body { font-family: system-ui, -apple-system, sans-serif; background-color: #f8fafc; }
-        .hidden-section { display: none; }
-        .active-section { display: block; }
+        /* ضمان إخفاء جميع الأقسام وإظهار القسم النشط فقط دون أي تداخل */
+        main > section { display: none !important; }
+        main > section.active-section { display: block !important; }
         input[type="date"] { direction: rtl; text-align: right; }
         @media print {
             nav, header, .no-print { display: none !important; }
@@ -90,11 +91,11 @@
                     <span id="displayUserName" class="font-bold text-amber-200"></span>
                 </div>
 
-                <button onclick="openBackupModal()" class="text-xs bg-indigo-800 hover:bg-indigo-900 px-2.5 py-1.5 rounded-lg border border-indigo-400 flex items-center gap-1 shadow-sm transition">
+                <button type="button" onclick="openBackupModal()" class="text-xs bg-indigo-800 hover:bg-indigo-900 px-2.5 py-1.5 rounded-lg border border-indigo-400 flex items-center gap-1 shadow-sm transition">
                     ☁️ النسخ
                 </button>
 
-                <button onclick="logoutUser()" title="تسجيل الخروج" class="text-xs bg-rose-600 hover:bg-rose-700 px-2 py-1.5 rounded-lg border border-rose-400 flex items-center gap-1 shadow-sm transition">
+                <button type="button" onclick="logoutUser()" title="تسجيل الخروج" class="text-xs bg-rose-600 hover:bg-rose-700 px-2 py-1.5 rounded-lg border border-rose-400 flex items-center gap-1 shadow-sm transition">
                     خروج 🚪
                 </button>
             </div>
@@ -105,12 +106,12 @@
         
         <!-- Navigation Menu -->
         <nav class="grid grid-cols-2 md:grid-cols-6 gap-2 mb-4 no-print text-xs md:text-sm font-medium">
-            <button onclick="showSection('beneficiariesSection')" id="nav-beneficiariesSection" class="nav-btn bg-white py-2.5 px-1 rounded-lg border border-slate-200 text-slate-700 shadow-sm text-center">المستفيدون</button>
-            <button onclick="showSection('grantsSection')" id="nav-grantsSection" class="nav-btn bg-white py-2.5 px-1 rounded-lg border border-slate-200 text-slate-700 shadow-sm text-center">العطايا</button>
-            <button onclick="showSection('distributeSection')" id="nav-distributeSection" class="nav-btn bg-white py-2.5 px-1 rounded-lg border border-slate-200 text-slate-700 shadow-sm text-center">الصرف الميداني</button>
-            <button onclick="showSection('reportsSection')" id="nav-reportsSection" class="nav-btn bg-white py-2.5 px-1 rounded-lg border border-slate-200 text-slate-700 shadow-sm text-center">التقارير</button>
-            <button onclick="showSection('statementsSection')" id="nav-statementsSection" class="nav-btn bg-white py-2.5 px-1 rounded-lg border border-slate-200 text-slate-700 shadow-sm text-center">الكشوفات</button>
-            <button onclick="showSection('permissionsSection')" id="nav-permissionsSection" class="nav-btn hidden bg-white py-2.5 px-1 rounded-lg border border-amber-200 text-amber-800 shadow-sm text-center">صلاحيات المستخدمين</button>
+            <button type="button" onclick="showSection('beneficiariesSection')" id="nav-beneficiariesSection" class="nav-btn bg-indigo-600 text-white py-2.5 px-1 rounded-lg border border-slate-200 shadow-sm text-center">المستفيدون</button>
+            <button type="button" onclick="showSection('grantsSection')" id="nav-grantsSection" class="nav-btn bg-white py-2.5 px-1 rounded-lg border border-slate-200 text-slate-700 shadow-sm text-center">العطايا</button>
+            <button type="button" onclick="showSection('distributeSection')" id="nav-distributeSection" class="nav-btn bg-white py-2.5 px-1 rounded-lg border border-slate-200 text-slate-700 shadow-sm text-center">الصرف الميداني</button>
+            <button type="button" onclick="showSection('reportsSection')" id="nav-reportsSection" class="nav-btn bg-white py-2.5 px-1 rounded-lg border border-slate-200 text-slate-700 shadow-sm text-center">التقارير</button>
+            <button type="button" onclick="showSection('statementsSection')" id="nav-statementsSection" class="nav-btn bg-white py-2.5 px-1 rounded-lg border border-slate-200 text-slate-700 shadow-sm text-center">الكشوفات</button>
+            <button type="button" onclick="showSection('permissionsSection')" id="nav-permissionsSection" class="nav-btn hidden bg-white py-2.5 px-1 rounded-lg border border-amber-200 text-amber-800 shadow-sm text-center">صلاحيات المستخدمين</button>
         </nav>
 
         <!-- ================= إدارة صلاحيات المستخدمين ================= -->
@@ -148,7 +149,7 @@
                     <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
                         <span>☁️</span> النسخ الاحتياطي السحابي (Google Drive)
                     </h3>
-                    <button onclick="closeBackupModal()" class="text-slate-400 hover:text-rose-600 text-xl font-bold">&times;</button>
+                    <button type="button" onclick="closeBackupModal()" class="text-slate-400 hover:text-rose-600 text-xl font-bold">&times;</button>
                 </div>
 
                 <p class="text-xs text-slate-600 mb-4 leading-relaxed">
@@ -158,10 +159,10 @@
                 <div class="space-y-3">
                     <div class="p-3 bg-indigo-50 border border-indigo-200 rounded-xl">
                         <span class="block font-bold text-xs text-indigo-900 mb-1">1. تصدير وحفظ نسخة جديدة:</span>
-                        <button onclick="uploadBackupToGoogleDrive()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 rounded-lg text-xs shadow-sm flex items-center justify-center gap-1">
+                        <button type="button" onclick="uploadBackupToGoogleDrive()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 rounded-lg text-xs shadow-sm flex items-center justify-center gap-1">
                             ☁️ رفع النسخة مباشرة إلى Google Drive
                         </button>
-                        <button onclick="exportBackupData()" class="w-full mt-2 bg-white hover:bg-indigo-50 text-indigo-700 border border-indigo-300 font-semibold py-2 rounded-lg text-xs flex items-center justify-center gap-1">
+                        <button type="button" onclick="exportBackupData()" class="w-full mt-2 bg-white hover:bg-indigo-50 text-indigo-700 border border-indigo-300 font-semibold py-2 rounded-lg text-xs flex items-center justify-center gap-1">
                             📥 تنزيل نسخة JSON يدويًا
                         </button>
                         <label class="block mt-3 text-[11px] text-indigo-900 font-semibold">معرّف عميل Google (Client ID):</label>
@@ -171,33 +172,33 @@
                     <div class="p-3 bg-emerald-50 border border-emerald-200 rounded-xl">
                         <span class="block font-bold text-xs text-emerald-900 mb-1">2. استرجاع نسخة سابقة:</span>
                         <input type="file" id="restoreFileInput" accept=".json" class="hidden" onchange="importBackupData(event)">
-                        <button onclick="document.getElementById('restoreFileInput').click()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 rounded-lg text-xs shadow-sm flex items-center justify-center gap-1">
+                        <button type="button" onclick="document.getElementById('restoreFileInput').click()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 rounded-lg text-xs shadow-sm flex items-center justify-center gap-1">
                             📤 استيراد واسترجاع البيانات
                         </button>
                     </div>
                 </div>
 
-                <button onclick="closeBackupModal()" class="w-full mt-4 bg-slate-100 hover:bg-slate-200 text-slate-700 py-2 rounded-lg text-xs font-semibold">
+                <button type="button" onclick="closeBackupModal()" class="w-full mt-4 bg-slate-100 hover:bg-slate-200 text-slate-700 py-2 rounded-lg text-xs font-semibold">
                     إغلاق
                 </button>
             </div>
         </div>
 
         <!-- ================= 1. قسم المستفيدين ================= -->
-        <section id="beneficiariesSection" class="hidden-section">
+        <section id="beneficiariesSection" class="active-section">
             <div class="bg-indigo-50 border border-indigo-200 p-3 rounded-xl mb-4 flex justify-between items-center text-xs">
                 <div>
                     <span class="font-bold text-indigo-900 block">استيراد أسماء من Excel</span>
                     <span class="text-indigo-600 text-[11px]">يتجاهل الأسماء المكررة والهمزات تلقائياً</span>
                 </div>
                 <input type="file" id="excelFile" accept=".xlsx, .xls, .csv" class="hidden" onchange="importExcel(event)">
-                <button data-permission="add" onclick="document.getElementById('excelFile').click()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-lg font-semibold shadow-xs">رفع ملف إكسل</button>
+                <button type="button" data-permission="add" onclick="document.getElementById('excelFile').click()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-lg font-semibold shadow-xs">رفع ملف إكسل</button>
             </div>
 
             <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 mb-4">
                 <div class="flex justify-between items-center mb-3">
                     <h2 id="benFormTitle" class="text-base font-bold text-indigo-700">إضافة مستفيد جديد</h2>
-                    <button id="cancelBenEditBtn" onclick="resetBenForm()" class="hidden text-xs text-rose-600 hover:underline">إلغاء التعديل</button>
+                    <button type="button" id="cancelBenEditBtn" onclick="resetBenForm()" class="hidden text-xs text-rose-600 hover:underline">إلغاء التعديل</button>
                 </div>
                 
                 <form id="benForm" onsubmit="saveBeneficiary(event)">
@@ -263,7 +264,7 @@
             <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 mb-4">
                 <div class="flex justify-between items-center mb-3">
                     <h2 id="grantFormTitle" class="text-base font-bold text-indigo-700">تسجيل عطية جديدة</h2>
-                    <button id="cancelGrantEditBtn" onclick="resetGrantForm()" class="hidden text-xs text-rose-600 hover:underline">إلغاء التعديل</button>
+                    <button type="button" id="cancelGrantEditBtn" onclick="resetGrantForm()" class="hidden text-xs text-rose-600 hover:underline">إلغاء التعديل</button>
                 </div>
 
                 <input type="hidden" id="editGrantId">
@@ -307,7 +308,7 @@
                         <textarea id="grantDetails" rows="2" placeholder="وصف مختصر، مكوّنات العطية، ملاحظات..." class="w-full p-2 border border-slate-300 rounded-lg text-sm"></textarea>
                     </div>
                 </div>
-                <button onclick="saveGrant()" id="grantSubmitBtn" class="w-full bg-indigo-600 text-white font-semibold py-2.5 rounded-lg hover:bg-indigo-700 transition text-sm">حفظ العطية</button>
+                <button type="button" onclick="saveGrant()" id="grantSubmitBtn" class="w-full bg-indigo-600 text-white font-semibold py-2.5 rounded-lg hover:bg-indigo-700 transition text-sm">حفظ العطية</button>
             </div>
 
             <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
@@ -347,7 +348,7 @@
                     <label class="block text-xs font-semibold text-indigo-900 mb-1">🔍 ابحث بالاسم أو جزء منه (يبقى التأشير محفوظاً عند البحث عن اسم آخر):</label>
                     <div class="relative flex items-center">
                         <input type="text" id="distSearchInput" oninput="loadDistributionList()" placeholder="اكتب جزءاً من اسم المستفيد للوصول الفوري..." class="w-full p-2.5 pl-8 border-2 border-indigo-200 rounded-lg text-sm focus:border-indigo-600 focus:outline-none bg-indigo-50/30">
-                        <button onclick="clearDistSearch()" title="مسح البحث" class="absolute left-2.5 text-slate-400 hover:text-slate-600 text-sm font-bold">✕</button>
+                        <button type="button" onclick="clearDistSearch()" title="مسح البحث" class="absolute left-2.5 text-slate-400 hover:text-slate-600 text-sm font-bold">✕</button>
                     </div>
                 </div>
 
@@ -359,14 +360,14 @@
                                 <input type="checkbox" id="selectAllCheck" onchange="selectAllVisible(this.checked)" class="w-5 h-5 text-indigo-600 rounded border-slate-300 cursor-pointer disabled:opacity-30">
                                 تحديد المعروض
                             </label>
-                            <button onclick="clearAllSelections()" id="clearSelectionBtn" class="hidden text-rose-600 hover:underline font-semibold text-[11px]">
+                            <button type="button" onclick="clearAllSelections()" id="clearSelectionBtn" class="hidden text-rose-600 hover:underline font-semibold text-[11px]">
                                 إلغاء تحديد الكل
                             </button>
                         </div>
                         <span id="selectionSummary" class="text-slate-700 font-bold bg-white px-2.5 py-1 rounded-lg border border-slate-200">تم تحديد: 0 أفراد</span>
                     </div>
 
-                    <button data-permission="add" onclick="confirmDistribution()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-lg shadow-sm transition text-sm">
+                    <button type="button" data-permission="add" onclick="confirmDistribution()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-lg shadow-sm transition text-sm">
                         اعتماد وحفظ الصرف للمحددين
                     </button>
                 </div>
@@ -383,14 +384,14 @@
                     <h2 class="text-sm font-bold text-indigo-700 flex items-center gap-1">
                         <span>🔍 تصفية وفلترة التقارير</span>
                     </h2>
-                    <button onclick="resetFilters()" class="text-xs text-slate-500 hover:text-rose-600 hover:underline">إعادة تعيين الفلاتر</button>
+                    <button type="button" onclick="resetFilters()" class="text-xs text-slate-500 hover:text-rose-600 hover:underline">إعادة تعيين الفلاتر</button>
                 </div>
 
                 <div class="mb-3 bg-indigo-50/50 p-2.5 rounded-lg border border-indigo-100">
                     <label class="block text-xs font-bold text-indigo-900 mb-1">بحث سريع في التقرير بالاسم (كامل أو مقطع):</label>
                     <div class="relative flex items-center">
                         <input type="text" id="filterReportSearchName" oninput="renderFilteredLogs()" placeholder="اكتب الاسم أو مقطعاً منه لتصفية الكشف فوراً..." class="w-full p-2 pl-8 border border-indigo-200 rounded-lg text-xs bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                        <button onclick="clearReportSearch()" class="absolute left-2.5 text-slate-400 hover:text-slate-600 text-xs font-bold">✕</button>
+                        <button type="button" onclick="clearReportSearch()" class="absolute left-2.5 text-slate-400 hover:text-slate-600 text-xs font-bold">✕</button>
                     </div>
                 </div>
 
@@ -445,16 +446,16 @@
                     <h2 class="text-base font-bold text-slate-700">نتائج الكشف</h2>
                     
                     <div class="flex flex-wrap gap-1.5 no-print">
-                        <button onclick="sharePDFToWhatsAppSmart()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 shadow-sm">
+                        <button type="button" onclick="sharePDFToWhatsAppSmart()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 shadow-sm">
                             مشاركة PDF للواتساب
                         </button>
-                        <button onclick="shareTextDirect()" class="bg-teal-600 hover:bg-teal-700 text-white px-2.5 py-1.5 rounded-lg text-xs font-semibold shadow-sm">
+                        <button type="button" onclick="shareTextDirect()" class="bg-teal-600 hover:bg-teal-700 text-white px-2.5 py-1.5 rounded-lg text-xs font-semibold shadow-sm">
                             مشاركة نصية للواتساب
                         </button>
-                        <button onclick="downloadPDFDirect()" class="bg-rose-600 hover:bg-rose-700 text-white px-2.5 py-1.5 rounded-lg text-xs font-semibold shadow-sm">
+                        <button type="button" onclick="downloadPDFDirect()" class="bg-rose-600 hover:bg-rose-700 text-white px-2.5 py-1.5 rounded-lg text-xs font-semibold shadow-sm">
                             تنزيل PDF
                         </button>
-                        <button onclick="exportToExcel()" class="bg-slate-700 hover:bg-slate-800 text-white px-2.5 py-1.5 rounded-lg text-xs font-semibold shadow-sm">
+                        <button type="button" onclick="exportToExcel()" class="bg-slate-700 hover:bg-slate-800 text-white px-2.5 py-1.5 rounded-lg text-xs font-semibold shadow-sm">
                             إكسل
                         </button>
                     </div>
@@ -503,13 +504,13 @@
     <div id="statementViewer" class="hidden fixed inset-0 z-50 bg-slate-200 overflow-auto">
         <div class="no-print sticky top-0 z-10 bg-white border-b border-slate-300 p-2 shadow">
             <div class="grid grid-cols-4 gap-1.5 text-[11px] font-semibold max-w-3xl mx-auto">
-                <button onclick="printStatement()" class="bg-slate-800 text-white py-2 rounded-lg">🖨️ طباعة</button>
-                <button onclick="downloadStatementPDF()" class="bg-rose-600 text-white py-2 rounded-lg">📄 تنزيل PDF</button>
-                <button onclick="shareStatementPDF()" class="bg-emerald-600 text-white py-2 rounded-lg">📤 مشاركة PDF</button>
-                <button onclick="copyStatementText()" class="bg-indigo-600 text-white py-2 rounded-lg">📋 نسخ نص</button>
-                <button onclick="whatsappStatement()" class="bg-teal-600 text-white py-2 rounded-lg">💬 واتساب</button>
-                <button data-permission="edit" onclick="askDeleteStatement()" class="bg-white border border-rose-300 text-rose-600 py-2 rounded-lg">🗑️ حذف الكشف</button>
-                <button onclick="closeStatement()" class="col-span-2 bg-slate-100 border border-slate-300 text-slate-700 py-2 rounded-lg">✕ إغلاق</button>
+                <button type="button" onclick="printStatement()" class="bg-slate-800 text-white py-2 rounded-lg">🖨️ طباعة</button>
+                <button type="button" onclick="downloadStatementPDF()" class="bg-rose-600 text-white py-2 rounded-lg">📄 تنزيل PDF</button>
+                <button type="button" onclick="shareStatementPDF()" class="bg-emerald-600 text-white py-2 rounded-lg">📤 مشاركة PDF</button>
+                <button type="button" onclick="copyStatementText()" class="bg-indigo-600 text-white py-2 rounded-lg">📋 نسخ نص</button>
+                <button type="button" onclick="whatsappStatement()" class="bg-teal-600 text-white py-2 rounded-lg">💬 واتساب</button>
+                <button type="button" data-permission="edit" onclick="askDeleteStatement()" class="bg-white border border-rose-300 text-rose-600 py-2 rounded-lg">🗑️️ حذف الكشف</button>
+                <button type="button" onclick="closeStatement()" class="col-span-2 bg-slate-100 border border-slate-300 text-slate-700 py-2 rounded-lg">✕ إغلاق</button>
             </div>
             <p id="stmtBusy" class="hidden text-center text-[11px] text-indigo-700 mt-1">جارٍ تجهيز الملف...</p>
         </div>
@@ -529,8 +530,8 @@
                 أفهم أن الحذف نهائي
             </label>
             <div class="flex gap-2">
-                <button onclick="closeDeleteStatement()" class="flex-1 bg-slate-100 border border-slate-300 text-slate-700 py-2 rounded-lg text-sm font-semibold">إلغاء</button>
-                <button id="delStmtBtn" onclick="confirmDeleteStatement()" disabled class="flex-1 bg-rose-600 text-white py-2 rounded-lg text-sm font-semibold disabled:opacity-40">حذف نهائي</button>
+                <button type="button" onclick="closeDeleteStatement()" class="flex-1 bg-slate-100 border border-slate-300 text-slate-700 py-2 rounded-lg text-sm font-semibold">إلغاء</button>
+                <button type="button" id="delStmtBtn" onclick="confirmDeleteStatement()" disabled class="flex-1 bg-rose-600 text-white py-2 rounded-lg text-sm font-semibold disabled:opacity-40">حذف نهائي</button>
             </div>
         </div>
     </div>
@@ -692,6 +693,7 @@
         let grants = JSON.parse(localStorage.getItem('alata_grants')) || [];
         let distributionLogs = JSON.parse(localStorage.getItem('alata_logs')) || [];
         let currentFilteredLogs = [];
+        let activeSectionId = 'beneficiariesSection';
 
         // ذاكرة حفظ التأشيرات والكميات أثناء البحث والفرز المتعدد في الصرف الميداني
         let selectedBenIds = new Set();
@@ -713,20 +715,43 @@
         function can(action) { const p = permissionState; return action === 'view' ? p.view : p.admin || p[action] === true; }
         function requirePermission(action) { if (can(action)) return true; alert(action === 'add' ? 'ليس لديك صلاحية الإضافة.' : action === 'edit' ? 'ليس لديك صلاحية التعديل أو الحذف.' : 'ليس لديك صلاحية الاطلاع.'); return false; }
         window.setPermissionRecords = records => { window.fbPermissionRecords = records || {}; permissionRecords = window.fbPermissionRecords; permissionState = currentPermission(); applyPermissionUI(); renderPermissions(); };
+
+        // تحديث واجهة الصلاحيات دون إظهار جميع الأقسام معاً
         function applyPermissionUI() {
-            document.querySelectorAll('[data-permission]').forEach(el => { const ok = can(el.dataset.permission); el.classList.toggle('hidden', !ok); if ('disabled' in el) el.disabled = !ok; });
+            document.querySelectorAll('[data-permission]').forEach(el => {
+                const ok = can(el.dataset.permission);
+                el.classList.toggle('hidden', !ok);
+                if ('disabled' in el) el.disabled = !ok;
+            });
             const adminNav = document.getElementById('nav-permissionsSection');
             if (adminNav) adminNav.classList.toggle('hidden', !permissionState.admin);
+
             const reportsAllowed = permissionState.admin || permissionState.reports;
-            ['beneficiariesSection','grantsSection','distributeSection'].forEach(id => { const el = document.getElementById(id); if (el) el.classList.toggle('hidden-section', !permissionState.view); });
-            ['reportsSection','statementsSection'].forEach(id => { const el = document.getElementById(id); if (el) el.classList.toggle('hidden-section', !permissionState.view || !reportsAllowed); });
-            ['nav-reportsSection','nav-statementsSection'].forEach(id => { const el = document.getElementById(id); if (el) el.classList.toggle('hidden', !permissionState.view || !reportsAllowed); });
+            ['nav-reportsSection', 'nav-statementsSection'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.classList.toggle('hidden', !permissionState.view || !reportsAllowed);
+            });
+
+            if (!permissionState.view) {
+                document.querySelectorAll('main > section').forEach(s => {
+                    s.classList.remove('active-section');
+                    s.classList.add('hidden-section');
+                });
+                return;
+            }
+
+            if ((activeSectionId === 'reportsSection' || activeSectionId === 'statementsSection') && !reportsAllowed) {
+                showSection('beneficiariesSection');
+            } else if (activeSectionId === 'permissionsSection' && !permissionState.admin) {
+                showSection('beneficiariesSection');
+            }
         }
+
         function renderPermissions() {
             const list = document.getElementById('permissionsList'); if (!list) return;
             if (!permissionState.admin) { list.innerHTML = ''; return; }
             const rows = Object.values(window.fbPermissionRecords || {});
-            list.innerHTML = rows.length ? rows.map(r => `<div class="flex flex-wrap justify-between items-center gap-2 p-2 rounded-lg bg-slate-50 border border-slate-200 text-xs"><b dir="ltr">${r.email}</b><span>${r.admin ? 'مدير' : [r.view?'اطلاع بيانات':'',r.add?'إضافة':'',r.edit?'تعديل':'',r.reports?'تقارير وكشوفات':''].filter(Boolean).join('، ') || 'بدون صلاحيات'}</span><button onclick="removeUserPermission('${permissionKey(r.email)}')" class="text-rose-600 hover:underline">حذف</button></div>`).join('') : '<p class="text-xs text-slate-400">لا توجد صلاحيات مضافة بعد.</p>';
+            list.innerHTML = rows.length ? rows.map(r => `<div class="flex flex-wrap justify-between items-center gap-2 p-2 rounded-lg bg-slate-50 border border-slate-200 text-xs"><b dir="ltr">${r.email}</b><span>${r.admin ? 'مدير' : [r.view?'اطلاع بيانات':'',r.add?'إضافة':'',r.edit?'تعديل':'',r.reports?'تقارير وكشوفات':''].filter(Boolean).join('، ') || 'بدون صلاحيات'}</span><button type="button" onclick="removeUserPermission('${permissionKey(r.email)}')" class="text-rose-600 hover:underline">حذف</button></div>`).join('') : '<p class="text-xs text-slate-400">لا توجد صلاحيات مضافة بعد.</p>';
         }
         async function saveUserPermission(e) {
             e.preventDefault(); if (!requirePermission('edit')) return;
@@ -793,17 +818,30 @@
             return copy.sort((a, b) => Number(b.id) - Number(a.id));
         }
 
+        // دالة التنقل بين الصفحات والأقسام بشكل معزول ومضمون
         function showSection(sectionId) {
             if (sectionId === 'permissionsSection' && !permissionState.admin) return alert('هذه الصفحة متاحة لمدير الصلاحيات فقط.');
             if (!permissionState.view) return alert('ليس لديك صلاحية الاطلاع.');
             if ((sectionId === 'reportsSection' || sectionId === 'statementsSection') && !permissionState.admin && !permissionState.reports) return alert('ليس لديك صلاحية عرض التقارير والكشوفات.');
-            document.querySelectorAll('.hidden-section').forEach(s => s.classList.remove('active-section'));
+
+            activeSectionId = sectionId;
+
+            document.querySelectorAll('main > section').forEach(s => {
+                s.classList.remove('active-section');
+                s.classList.add('hidden-section');
+            });
+
             document.querySelectorAll('.nav-btn').forEach(b => {
                 b.classList.remove('bg-indigo-600', 'text-white');
                 b.classList.add('bg-white', 'text-slate-700');
             });
 
-            document.getElementById(sectionId).classList.add('active-section');
+            const targetSection = document.getElementById(sectionId);
+            if (targetSection) {
+                targetSection.classList.remove('hidden-section');
+                targetSection.classList.add('active-section');
+            }
+
             const activeBtn = document.getElementById('nav-' + sectionId);
             if (activeBtn) {
                 activeBtn.classList.remove('bg-white', 'text-slate-700');
@@ -815,6 +853,7 @@
             if (sectionId === 'statementsSection') renderStatementsList();
             if (sectionId === 'distributeSection') initDistributeSection();
             if (sectionId === 'reportsSection') initReportsSection();
+            if (sectionId === 'permissionsSection') renderPermissions();
         }
 
         // ================= النسخ الاحتياطي =================
@@ -830,7 +869,7 @@
 
         function getFullBackupData() {
             return {
-                version: '1.5',
+                version: '1.6',
                 exportDate: new Date().toISOString(),
                 beneficiaries,
                 grants,
@@ -1130,8 +1169,8 @@
                     </div>
                     <div class="flex items-center gap-2">
                         <span class="bg-slate-200 text-slate-700 px-2 py-0.5 rounded text-[10px]">${b.category}</span>
-                        ${can('edit') ? `<button onclick="editBeneficiary(${b.id})" class="text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-2 py-1 rounded text-[11px] font-semibold">تعديل</button>
-                        <button onclick="deleteBeneficiary(${b.id})" class="text-rose-600 bg-rose-50 hover:bg-rose-100 px-2 py-1 rounded text-[11px] font-semibold">حذف</button>` : ''}
+                        ${can('edit') ? `<button type="button" onclick="editBeneficiary(${b.id})" class="text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-2 py-1 rounded text-[11px] font-semibold">تعديل</button>
+                        <button type="button" onclick="deleteBeneficiary(${b.id})" class="text-rose-600 bg-rose-50 hover:bg-rose-100 px-2 py-1 rounded text-[11px] font-semibold">حذف</button>` : ''}
                     </div>
                 </div>
             `).join('');
@@ -1272,8 +1311,8 @@
                     </div>
                     <div class="flex items-center gap-2">
                         <span class="bg-indigo-50 text-indigo-700 px-2 py-1 rounded font-semibold">الاستحقاق: ${g.defaultQuota}</span>
-                        ${can('edit') ? `<button onclick="editGrant(${g.id})" class="text-indigo-600 hover:underline">تعديل</button>
-                        <button onclick="deleteGrant(${g.id})" class="text-rose-600 hover:underline">حذف</button>` : ''}
+                        ${can('edit') ? `<button type="button" onclick="editGrant(${g.id})" class="text-indigo-600 hover:underline">تعديل</button>
+                        <button type="button" onclick="deleteGrant(${g.id})" class="text-rose-600 hover:underline">حذف</button>` : ''}
                     </div>
                 </div>
             `}).join('');
@@ -1399,7 +1438,7 @@
                             </span>
                             <div class="flex items-center gap-1">
                                 <input type="number" id="quota-${b.id}" value="${quotaVal}" min="1" oninput="saveCustomQuota('${b.id}', this.value)" ${totalTaken > 0 ? 'disabled' : ''} class="disabled:opacity-40 w-14 p-1 text-center font-bold border border-slate-300 rounded text-xs focus:ring-1 focus:ring-indigo-500">
-                                <button data-permission="add" onclick="quickDistributeOne('${b.id}')" ${totalTaken > 0 ? 'disabled' : ''} class="disabled:opacity-40 disabled:pointer-events-none bg-indigo-50 hover:bg-indigo-600 hover:text-white text-indigo-700 font-semibold px-2 py-1 rounded text-[11px] border border-indigo-200 transition">
+                                <button type="button" data-permission="add" onclick="quickDistributeOne('${b.id}')" ${totalTaken > 0 ? 'disabled' : ''} class="disabled:opacity-40 disabled:pointer-events-none bg-indigo-50 hover:bg-indigo-600 hover:text-white text-indigo-700 font-semibold px-2 py-1 rounded text-[11px] border border-indigo-200 transition">
                                     صرف فوري
                                 </button>
                             </div>
@@ -1647,8 +1686,8 @@
                         <td class="p-2 text-center text-slate-600 font-medium text-[11px]"><span class="bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded border border-indigo-100">${creator}</span></td>
                         <td class="p-2 text-slate-400 text-[10px]">${log.timestamp}</td>
                         <td class="p-2 text-center no-print">
-                            ${can('edit') ? `<button onclick="editLogAmount(${log.id})" class="text-indigo-600 hover:underline mx-1">تعديل</button>
-                            <button onclick="deleteLog(${log.id})" class="text-rose-600 hover:underline mx-1">إلغاء</button>` : ''}
+                            ${can('edit') ? `<button type="button" onclick="editLogAmount(${log.id})" class="text-indigo-600 hover:underline mx-1">تعديل</button>
+                            <button type="button" onclick="deleteLog(${log.id})" class="text-rose-600 hover:underline mx-1">إلغاء</button>` : ''}
                         </td>
                     </tr>
                 `;
@@ -1710,7 +1749,7 @@
 
                 const filterDesc = document.getElementById('activeFilterDesc').innerText;
                 const totalAmount = currentFilteredLogs.reduce((sum, item) => sum + Number(item.amount), 0);
-                const wpMsg = `📄 *تقرير صرف العطايا والمساعدات*\n📅 التاريخ: ${new Date().toLocaleDateString('ar-YE')}\n${filterDesc !== 'عرض شامل بدون تصفية' ? '🏷️️ ' + filterDesc + '\n' : ''}👥 عدد المستفيدين: ${currentFilteredLogs.length}\n📦 إجمالي العطايا: ${totalAmount}`;
+                const wpMsg = `📄 *تقرير صرف العطايا والمساعدات*\n📅 التاريخ: ${new Date().toLocaleDateString('ar-YE')}\n${filterDesc !== 'عرض شامل بدون تصفية' ? '🏷 ' + filterDesc + '\n' : ''}👥 عدد المستفيدين: ${currentFilteredLogs.length}\n📦 إجمالي العطايا: ${totalAmount}`;
                 alert('هذا المتصفح لا يدعم إرفاق PDF مباشرة. سيتم فتح واتساب بالنص فقط؛ استخدم هاتفاً يدعم مشاركة النظام لإرسال PDF كمرفق.');
                 window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(wpMsg)}`, '_blank');
 
@@ -1931,7 +1970,6 @@
         async function buildStatementPagesHTML(d) {
             try { await document.fonts.load('400 13px Tajawal'); await document.fonts.load('700 13px Tajawal'); } catch (e) {}
 
-            // المساحة الصافية داخل الصفحة الواحدة بعد الحواشي والتذييل
             const MAX_CONTENT_H = 975;
             const GAP = 14, SIGN_GAP = 26;
             const theadHtml = getStmtThead(d);
@@ -2048,8 +2086,8 @@
                         </div>
                     </div>
                     <div class="flex gap-2 mt-2">
-                        <button onclick="openStatement('${g.id}')" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-1.5 rounded-lg text-xs font-semibold">عرض الكشف</button>
-                        <button onclick="askDeleteStatement('${g.id}')" class="px-3 border border-rose-300 text-rose-600 hover:bg-rose-50 rounded-lg text-xs">حذف</button>
+                        <button type="button" onclick="openStatement('${g.id}')" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-1.5 rounded-lg text-xs font-semibold">عرض الكشف</button>
+                        <button type="button" onclick="askDeleteStatement('${g.id}')" class="px-3 border border-rose-300 text-rose-600 hover:bg-rose-50 rounded-lg text-xs">حذف</button>
                     </div>
                 </div>`;
             }).join('');
