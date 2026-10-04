@@ -93,13 +93,41 @@
     <main class="p-3 max-w-4xl mx-auto">
         
         <!-- Navigation Menu -->
-        <nav class="grid grid-cols-5 gap-2 mb-4 no-print text-xs md:text-sm font-medium">
+        <nav class="grid grid-cols-2 md:grid-cols-6 gap-2 mb-4 no-print text-xs md:text-sm font-medium">
             <button onclick="showSection('beneficiariesSection')" id="nav-beneficiariesSection" class="nav-btn bg-white py-2.5 px-1 rounded-lg border border-slate-200 text-slate-700 shadow-sm text-center">المستفيدون</button>
             <button onclick="showSection('grantsSection')" id="nav-grantsSection" class="nav-btn bg-white py-2.5 px-1 rounded-lg border border-slate-200 text-slate-700 shadow-sm text-center">العطايا</button>
             <button onclick="showSection('distributeSection')" id="nav-distributeSection" class="nav-btn bg-white py-2.5 px-1 rounded-lg border border-slate-200 text-slate-700 shadow-sm text-center">الصرف الميداني</button>
             <button onclick="showSection('reportsSection')" id="nav-reportsSection" class="nav-btn bg-white py-2.5 px-1 rounded-lg border border-slate-200 text-slate-700 shadow-sm text-center">التقارير</button>
             <button onclick="showSection('statementsSection')" id="nav-statementsSection" class="nav-btn bg-white py-2.5 px-1 rounded-lg border border-slate-200 text-slate-700 shadow-sm text-center">الكشوفات</button>
+            <button onclick="showSection('permissionsSection')" id="nav-permissionsSection" class="nav-btn hidden bg-white py-2.5 px-1 rounded-lg border border-amber-200 text-amber-800 shadow-sm text-center">صلاحيات المستخدمين</button>
         </nav>
+
+        <!-- ================= إدارة صلاحيات المستخدمين ================= -->
+        <section id="permissionsSection" class="hidden-section">
+            <div class="bg-amber-50 border border-amber-200 p-3 rounded-xl mb-4 text-xs">
+                <h2 class="font-bold text-amber-900 text-base mb-1">إدارة صلاحيات المستخدمين</h2>
+                <p class="text-amber-800 leading-6">أدخل البريد المستخدم في فايربيس (أو اسم المستخدم قبل ‎@ataya.local‎)، ثم اختر الصلاحيات. الصلاحية الافتراضية للمستخدم الجديد هي الاطلاع فقط.</p>
+            </div>
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 mb-4">
+                <form onsubmit="saveUserPermission(event)" class="space-y-3">
+                    <div>
+                        <label class="block text-xs font-semibold mb-1">البريد أو اسم المستخدم</label>
+                        <input id="permissionEmail" type="text" required dir="ltr" placeholder="ahmed أو ahmed@example.com" class="w-full p-2 border border-slate-300 rounded-lg text-sm">
+                    </div>
+                    <div class="flex flex-wrap gap-4 text-xs font-semibold">
+                        <label class="flex items-center gap-2"><input id="permissionView" type="checkbox" checked class="w-4 h-4"> الاطلاع</label>
+                        <label class="flex items-center gap-2"><input id="permissionAdd" type="checkbox" class="w-4 h-4"> الإضافة</label>
+                        <label class="flex items-center gap-2"><input id="permissionEdit" type="checkbox" class="w-4 h-4"> التعديل والحذف</label>
+                        <label class="flex items-center gap-2 text-amber-700"><input id="permissionAdmin" type="checkbox" class="w-4 h-4"> مدير صلاحيات</label>
+                    </div>
+                    <button type="submit" class="w-full bg-amber-600 hover:bg-amber-700 text-white font-semibold py-2.5 rounded-lg">حفظ الصلاحيات</button>
+                </form>
+            </div>
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                <h3 class="font-bold text-slate-700 text-sm mb-3">المستخدمون المضافون</h3>
+                <div id="permissionsList" class="space-y-2"></div>
+            </div>
+        </section>
 
         <!-- نافذة النسخ الاحتياطي -->
         <div id="backupModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 hidden">
@@ -151,7 +179,7 @@
                     <span class="text-indigo-600 text-[11px]">يتجاهل الأسماء المكررة والهمزات تلقائياً</span>
                 </div>
                 <input type="file" id="excelFile" accept=".xlsx, .xls, .csv" class="hidden" onchange="importExcel(event)">
-                <button onclick="document.getElementById('excelFile').click()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-lg font-semibold shadow-xs">رفع ملف إكسل</button>
+                <button data-permission="add" onclick="document.getElementById('excelFile').click()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-lg font-semibold shadow-xs">رفع ملف إكسل</button>
             </div>
 
             <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 mb-4">
@@ -287,7 +315,7 @@
 
                 <div id="distributeList" class="space-y-2 mb-4 max-h-[28rem] overflow-y-auto"></div>
 
-                <button onclick="confirmDistribution()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-lg shadow-md transition text-sm">
+                <button data-permission="add" onclick="confirmDistribution()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-lg shadow-md transition text-sm">
                     اعتماد وحفظ الصرف للمحددين
                 </button>
             </div>
@@ -424,7 +452,7 @@
                 <button onclick="shareStatementPDF()" class="bg-emerald-600 text-white py-2 rounded-lg">📤 مشاركة PDF</button>
                 <button onclick="copyStatementText()" class="bg-indigo-600 text-white py-2 rounded-lg">📋 نسخ نص</button>
                 <button onclick="whatsappStatement()" class="bg-teal-600 text-white py-2 rounded-lg">💬 واتساب</button>
-                <button onclick="askDeleteStatement()" class="bg-white border border-rose-300 text-rose-600 py-2 rounded-lg">🗑️ حذف الكشف</button>
+                <button data-permission="edit" onclick="askDeleteStatement()" class="bg-white border border-rose-300 text-rose-600 py-2 rounded-lg">🗑️ حذف الكشف</button>
                 <button onclick="closeStatement()" class="col-span-2 bg-slate-100 border border-slate-300 text-slate-700 py-2 rounded-lg">✕ إغلاق</button>
             </div>
             <p id="stmtBusy" class="hidden text-center text-[11px] text-indigo-700 mt-1">جارٍ تجهيز الملف...</p>
@@ -476,6 +504,8 @@
         const ROOT = 'atp_v2';      // الهيكل الجديد: كل سجل بمفتاحه
         const OLD  = 'atp_data';    // الهيكل القديم: يبقى كما هو كنسخة احتياطية
         const COLS = ['beneficiaries', 'grants', 'distributionLogs'];
+        let permissionRecords = {};
+        window.fbPermissionRecords = {};
 
         const key = id => String(id).replace(/[.#$\[\]\/]/g, '_');
         const toArr = v => (!v ? [] : (Array.isArray(v) ? v.filter(Boolean) : Object.values(v)))
@@ -496,6 +526,7 @@
         };
 
         window.fbSignOut = () => signOut(auth);
+        window.fbPermissionUpdate = updates => update(ref(db, ROOT), updates);
 
         // رفع السجلات المتغيرة فقط، وحذف المحذوفة؛ لا يستبدل بيانات الآخرين
         window.fbPush = async function () {
@@ -567,7 +598,11 @@
             }
 
             onValue(rootRef, (s) => {
-                applyAndRender(s.val() || {});
+                const rootData = s.val() || {};
+                permissionRecords = rootData.permissions || {};
+                window.fbPermissionRecords = permissionRecords;
+                window.setPermissionRecords && window.setPermissionRecords(permissionRecords);
+                applyAndRender(rootData);
                 ready = true;   // لا كتابة قبل أول قراءة ناجحة
                 window.fbSetBadge('ok');
             }, (error) => {
@@ -579,6 +614,8 @@
         onAuthStateChanged(auth, (user) => {
             if (!user) { window.location.replace('login.html'); return; }
             loggedUser = user.displayName || (user.email || '').split('@')[0] || 'مسؤول';
+            window.currentUserEmail = (user.email || '').toLowerCase();
+            window.currentUserUid = user.uid;
             const el = document.getElementById('displayUserName');
             if (el) el.innerText = loggedUser;
             document.documentElement.style.visibility = 'visible';
@@ -599,6 +636,45 @@
         let grants = JSON.parse(localStorage.getItem('alata_grants')) || [];
         let distributionLogs = JSON.parse(localStorage.getItem('alata_logs')) || [];
         let currentFilteredLogs = [];
+        let permissionRecords = {};
+        let permissionState = { view: true, add: false, edit: false, admin: false, bootstrap: false };
+        const permissionKey = value => String(value || '').trim().toLowerCase().replace(/[.#$\[\]\/]/g, '_').replace(/@/g, '_at_');
+        const normalizePermissionEmail = value => { const v = String(value || '').trim().toLowerCase(); return v.includes('@') ? v : `${v}@ataya.local`; };
+        function currentPermission() {
+            const email = window.currentUserEmail || '';
+            const all = Object.values(window.fbPermissionRecords || {});
+            const record = (window.fbPermissionRecords || {})[permissionKey(email)] || all.find(x => String(x.email || '').toLowerCase() === email);
+            if (record) return { view: record.view !== false, add: record.add === true, edit: record.edit === true, admin: record.admin === true };
+            // أول حساب يفتح النظام يكون مدير الإعداد الأول فقط، وبعد إنشاء أول سجل يصبح غير المدرجين اطلاعاً فقط.
+            const hasAdmin = all.some(x => x.admin === true);
+            const bootstrap = !all.length || !hasAdmin;
+            return { view: true, add: bootstrap, edit: bootstrap, admin: bootstrap, bootstrap };
+        }
+        function can(action) { const p = permissionState; return action === 'view' ? p.view : p.admin || p[action] === true; }
+        function requirePermission(action) { if (can(action)) return true; alert(action === 'add' ? 'ليس لديك صلاحية الإضافة.' : action === 'edit' ? 'ليس لديك صلاحية التعديل أو الحذف.' : 'ليس لديك صلاحية الاطلاع.'); return false; }
+        window.setPermissionRecords = records => { window.fbPermissionRecords = records || {}; permissionRecords = window.fbPermissionRecords; permissionState = currentPermission(); applyPermissionUI(); renderPermissions(); };
+        function applyPermissionUI() {
+            document.querySelectorAll('[data-permission]').forEach(el => { const ok = can(el.dataset.permission); el.classList.toggle('hidden', !ok); if ('disabled' in el) el.disabled = !ok; });
+            const adminNav = document.getElementById('nav-permissionsSection');
+            if (adminNav) adminNav.classList.toggle('hidden', !permissionState.admin);
+            ['beneficiariesSection','grantsSection','distributeSection','reportsSection','statementsSection'].forEach(id => { const el = document.getElementById(id); if (el) el.classList.toggle('hidden-section', !permissionState.view); });
+        }
+        function renderPermissions() {
+            const list = document.getElementById('permissionsList'); if (!list) return;
+            if (!permissionState.admin) { list.innerHTML = ''; return; }
+            const rows = Object.values(window.fbPermissionRecords || {});
+            list.innerHTML = rows.length ? rows.map(r => `<div class="flex flex-wrap justify-between items-center gap-2 p-2 rounded-lg bg-slate-50 border border-slate-200 text-xs"><b dir="ltr">${r.email}</b><span>${r.admin ? 'مدير' : [r.view?'اطلاع':'',r.add?'إضافة':'',r.edit?'تعديل':''].filter(Boolean).join('، ') || 'بدون صلاحيات'}</span><button onclick="removeUserPermission('${permissionKey(r.email)}')" class="text-rose-600 hover:underline">حذف</button></div>`).join('') : '<p class="text-xs text-slate-400">لا توجد صلاحيات مضافة بعد.</p>';
+        }
+        async function saveUserPermission(e) {
+            e.preventDefault(); if (!requirePermission('edit')) return;
+            const email = normalizePermissionEmail(document.getElementById('permissionEmail').value); if (!email || !email.includes('@')) return;
+            const record = { email, view: document.getElementById('permissionView').checked, add: document.getElementById('permissionAdd').checked, edit: document.getElementById('permissionEdit').checked, admin: document.getElementById('permissionAdmin').checked, updatedBy: loggedUser, updatedAt: new Date().toISOString() };
+            const updates = {}; updates[`permissions/${permissionKey(email)}`] = record;
+            // عند الإعداد الأول، احفظ الحساب الحالي كمدير حتى لا يفقد مدير النظام صلاحياته.
+            if (permissionState.bootstrap && window.currentUserEmail) updates[`permissions/${permissionKey(window.currentUserEmail)}`] = { email: window.currentUserEmail, view: true, add: true, edit: true, admin: true, updatedBy: loggedUser, updatedAt: new Date().toISOString() };
+            try { await window.fbPermissionUpdate(updates); alert('تم حفظ صلاحيات المستخدم.'); e.target.reset(); document.getElementById('permissionView').checked = true; } catch (_) { alert('تعذر حفظ الصلاحيات في فايربيس.'); }
+        }
+        async function removeUserPermission(k) { if (!requirePermission('edit') || !confirm('حذف صلاحيات هذا المستخدم؟')) return; const updates = {}; updates[`permissions/${k}`] = null; try { await window.fbPermissionUpdate(updates); } catch (_) { alert('تعذر حذف الصلاحية.'); } }
 
         function logoutUser() {
             if (window.fbSignOut) window.fbSignOut().finally(() => window.location.replace('login.html'));
@@ -632,6 +708,8 @@
         }
 
         function showSection(sectionId) {
+            if (sectionId === 'permissionsSection' && !permissionState.admin) return alert('هذه الصفحة متاحة لمدير الصلاحيات فقط.');
+            if (!permissionState.view) return alert('ليس لديك صلاحية الاطلاع.');
             document.querySelectorAll('.hidden-section').forEach(s => s.classList.remove('active-section'));
             document.querySelectorAll('.nav-btn').forEach(b => {
                 b.classList.remove('bg-indigo-600', 'text-white');
@@ -736,6 +814,7 @@
         }
 
         function importBackupData(event) {
+            if (!requirePermission("edit")) return;
             const file = event.target.files[0];
             if (!file) return;
 
@@ -767,6 +846,7 @@
 
         // ================= استيراد الإكسل =================
         function importExcel(event) {
+            if (!requirePermission("add")) return;
             const file = event.target.files[0];
             if (!file) return;
 
@@ -856,6 +936,7 @@
         function saveBeneficiary(e) {
             e.preventDefault();
             const editId = document.getElementById('editBenId').value;
+            if (!requirePermission(editId ? "edit" : "add")) return;
             const rawName = document.getElementById('benName').value.trim();
             const normNew = normalizeArabic(rawName);
             const needVal = document.getElementById('benNeedPercent').value;
@@ -892,6 +973,7 @@
         }
 
         function editBeneficiary(id) {
+            if (!requirePermission("edit")) return;
             const ben = beneficiaries.find(b => b.id == id);
             if (!ben) return;
 
@@ -921,6 +1003,7 @@
         }
 
         function deleteBeneficiary(id) {
+            if (!requirePermission("edit")) return;
             if (!confirm('هل أنت متأكد من حذف هذا المستفيد؟')) return;
             beneficiaries = beneficiaries.filter(b => b.id != id);
             syncToFirebase();
@@ -956,8 +1039,8 @@
                     </div>
                     <div class="flex items-center gap-2">
                         <span class="bg-slate-200 text-slate-700 px-2 py-0.5 rounded text-[10px]">${b.category}</span>
-                        <button onclick="editBeneficiary(${b.id})" class="text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-2 py-1 rounded text-[11px] font-semibold">تعديل</button>
-                        <button onclick="deleteBeneficiary(${b.id})" class="text-rose-600 bg-rose-50 hover:bg-rose-100 px-2 py-1 rounded text-[11px] font-semibold">حذف</button>
+                        ${can('edit') ? `<button onclick="editBeneficiary(${b.id})" class="text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-2 py-1 rounded text-[11px] font-semibold">تعديل</button>
+                        <button onclick="deleteBeneficiary(${b.id})" class="text-rose-600 bg-rose-50 hover:bg-rose-100 px-2 py-1 rounded text-[11px] font-semibold">حذف</button>` : ''}
                     </div>
                 </div>
             `).join('');
@@ -986,6 +1069,7 @@
         // ================= العطايا =================
         function saveGrant() {
             const editId = document.getElementById('editGrantId').value;
+            if (!requirePermission(editId ? "edit" : "add")) return;
             const name = document.getElementById('grantName').value.trim();
             const donor = document.getElementById('grantDonor').value.trim() || 'فاعل خير';
             const date = document.getElementById('grantDate').value;
@@ -1012,6 +1096,7 @@
         }
 
         function editGrant(id) {
+            if (!requirePermission("edit")) return;
             const g = grants.find(item => item.id == id);
             if (!g) return;
 
@@ -1046,6 +1131,7 @@
         }
 
         function deleteGrant(id) {
+            if (!requirePermission("edit")) return;
             if (!confirm('حذف هذه العطية لا يحذف سجلات الصرف السابقة. هل ترغب بالاستمرار؟')) return;
             grants = grants.filter(g => g.id != id);
             syncToFirebase();
@@ -1066,8 +1152,8 @@
                     </div>
                     <div class="flex items-center gap-2">
                         <span class="bg-indigo-50 text-indigo-700 px-2 py-1 rounded font-semibold">افتراضي: ${g.defaultQuota}</span>
-                        <button onclick="editGrant(${g.id})" class="text-indigo-600 hover:underline">تعديل</button>
-                        <button onclick="deleteGrant(${g.id})" class="text-rose-600 hover:underline">حذف</button>
+                        ${can('edit') ? `<button onclick="editGrant(${g.id})" class="text-indigo-600 hover:underline">تعديل</button>
+                        <button onclick="deleteGrant(${g.id})" class="text-rose-600 hover:underline">حذف</button>` : ''}
                     </div>
                 </div>
             `).join('');
@@ -1136,7 +1222,7 @@
                             </span>
                             <div class="flex items-center gap-1">
                                 <input type="number" id="quota-${b.id}" value="${activeGrant.defaultQuota}" min="1" ${totalTaken > 0 ? 'disabled' : ''} class="disabled:opacity-40 w-14 p-1 text-center font-bold border border-slate-300 rounded text-xs focus:ring-1 focus:ring-indigo-500">
-                                <button onclick="quickDistributeOne(${b.id})" ${totalTaken > 0 ? 'disabled' : ''} class="disabled:opacity-40 disabled:pointer-events-none bg-indigo-50 hover:bg-indigo-600 hover:text-white text-indigo-700 font-semibold px-2 py-1 rounded text-[11px] border border-indigo-200 transition">
+                                <button data-permission="add" onclick="quickDistributeOne(${b.id})" ${totalTaken > 0 ? 'disabled' : ''} class="disabled:opacity-40 disabled:pointer-events-none bg-indigo-50 hover:bg-indigo-600 hover:text-white text-indigo-700 font-semibold px-2 py-1 rounded text-[11px] border border-indigo-200 transition">
                                     صرف فوري
                                 </button>
                             </div>
@@ -1149,6 +1235,7 @@
         }
 
         function quickDistributeOne(benId) {
+            if (!requirePermission("add")) return;
             const grantId = document.getElementById('distGrantSelect').value;
             if (!grantId) return alert('يرجى تحديد العطية أولاً.');
 
@@ -1199,6 +1286,7 @@
         }
 
         function confirmDistribution() {
+            if (!requirePermission("add")) return;
             const grantId = document.getElementById('distGrantSelect').value;
             const checkedBoxes = document.querySelectorAll('.dist-check:checked:not(:disabled)');
 
@@ -1348,8 +1436,8 @@
                         <td class="p-2 text-center text-slate-600 font-medium text-[11px]"><span class="bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded border border-indigo-100">${creator}</span></td>
                         <td class="p-2 text-slate-400 text-[10px]">${log.timestamp}</td>
                         <td class="p-2 text-center no-print">
-                            <button onclick="editLogAmount(${log.id})" class="text-indigo-600 hover:underline mx-1">تعديل</button>
-                            <button onclick="deleteLog(${log.id})" class="text-rose-600 hover:underline mx-1">إلغاء</button>
+                            ${can('edit') ? `<button onclick="editLogAmount(${log.id})" class="text-indigo-600 hover:underline mx-1">تعديل</button>
+                            <button onclick="deleteLog(${log.id})" class="text-rose-600 hover:underline mx-1">إلغاء</button>` : ''}
                         </td>
                     </tr>
                 `;
@@ -1357,6 +1445,7 @@
         }
 
         function editLogAmount(logId) {
+            if (!requirePermission("edit")) return;
             const log = distributionLogs.find(l => l.id == logId);
             if (!log) return;
             const newAmount = prompt('أدخل الكمية أو المبلغ الجديد:', log.amount);
@@ -1368,6 +1457,7 @@
         }
 
         function deleteLog(logId) {
+            if (!requirePermission("edit")) return;
             if (!confirm('هل تريد إلغاء حركة الصرف هذه للمستفيد؟')) return;
             distributionLogs = distributionLogs.filter(l => l.id != logId);
             syncToFirebase();
