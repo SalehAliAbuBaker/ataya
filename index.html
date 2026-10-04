@@ -19,7 +19,7 @@
             .print-area { display: block !important; }
         }
         /* ===== كشف العطية (عرض + طباعة A4 + PDF) ===== */
-        .stmt-sheet { font-family: 'Tajawal','Segoe UI',Tahoma,sans-serif; direction: rtl; width: 718px; background: #fff; color: #0f172a; font-size: 13px; line-height: 1.6; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .stmt-sheet { font-family: 'Tajawal','Segoe UI',Tahoma,sans-serif; direction: rtl; width: 718px; background: transparent; color: #0f172a; font-size: 13px; line-height: 1.6; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         .stmt-head { text-align: center; border-bottom: 2px solid #1e293b; padding-bottom: 8px; margin-bottom: 12px; }
         .stmt-head .org { font-size: 12px; color: #475569; }
         .stmt-head h1 { font-size: 22px; font-weight: 700; margin: 2px 0 0; }
@@ -39,18 +39,18 @@
         .stmt-sign p { margin: 12px 0 0; font-size: 12px; color: #334155; }
         .stmt-sign .ln { display: inline-block; width: 62%; border-bottom: 1px dotted #475569; vertical-align: bottom; }
         @page { size: A4 portrait; margin: 10mm; }
-        .stmt-page { position: relative; width: 718px; height: 1040px; overflow: hidden; background: #fff; box-sizing: border-box; }
+        .stmt-page { position: relative; width: 718px; height: 1040px; padding: 14px 16px 38px; overflow: hidden; background: #fff; box-sizing: border-box; }
         .stmt-compact { display: flex; justify-content: space-between; align-items: center; gap: 8px; border-bottom: 2px solid #1e293b; padding-bottom: 6px; margin-bottom: 10px; font-size: 12px; color: #334155; }
         .stmt-compact b { font-size: 15px; color: #0f172a; }
-        .stmt-foot { position: absolute; bottom: 0; right: 0; left: 0; text-align: center; font-size: 11px; color: #475569; border-top: 1px solid #cbd5e1; padding-top: 5px; }
-        #statementSheet .stmt-page { margin-bottom: 14px; box-shadow: 0 1px 4px rgba(0,0,0,.25); }
+        .stmt-foot { position: absolute; bottom: 6px; right: 16px; left: 16px; text-align: center; font-size: 11px; color: #475569; border-top: 1px solid #cbd5e1; padding-top: 5px; background: #fff; }
+        #statementSheet .stmt-page { margin-bottom: 18px; box-shadow: 0 2px 8px rgba(0,0,0,.22); border-radius: 4px; }
         @media print {
             body.printing-statement > *:not(#statementViewer) { display: none !important; }
             body.printing-statement #statementViewer { position: static !important; display: block !important; overflow: visible !important; background: #fff !important; height: auto !important; }
             body.printing-statement #statementScale { padding: 0 !important; display: block !important; }
-            body.printing-statement #statementSheet { zoom: 1 !important; box-shadow: none !important; }
+            body.printing-statement #statementSheet { zoom: 1 !important; box-shadow: none !important; background: transparent !important; }
             body.printing-statement .stmt-sheet { width: 100% !important; }
-            body.printing-statement .stmt-page { width: 100% !important; margin: 0 !important; box-shadow: none !important; break-after: page; page-break-after: always; }
+            body.printing-statement .stmt-page { width: 100% !important; margin: 0 !important; padding: 0 0 34px 0 !important; box-shadow: none !important; border-radius: 0 !important; break-after: page; page-break-after: always; }
             body.printing-statement .stmt-page:last-child { break-after: auto; page-break-after: auto; }
         }
     </style>
@@ -243,7 +243,7 @@
                         <input type="text" id="searchBen" oninput="renderBeneficiaries()" placeholder="بحث بالاسم أو المنطقة..." class="p-1.5 border border-slate-300 rounded-md text-xs w-44">
                     </div>
                 </div>
-                <div id="beneficiariesList" class="space-y-2 max-h-96 overflow-y-auto"></div>
+                <div id="beneficiariesList" class="space-y-2"></div>
             </div>
         </section>
 
@@ -313,7 +313,7 @@
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
                     <div>
                         <label class="block text-xs font-semibold text-slate-600 mb-1">اختر العطية الحالية:</label>
-                        <select id="distGrantSelect" onchange="loadDistributionList()" class="w-full p-2 border border-slate-300 rounded-lg text-sm bg-indigo-50 font-medium"></select>
+                        <select id="distGrantSelect" onchange="onGrantSelectionChange()" class="w-full p-2 border border-slate-300 rounded-lg text-sm bg-indigo-50 font-medium"></select>
                     </div>
                     <div>
                         <label class="block text-xs font-semibold text-slate-600 mb-1">تصفية حسب الفئة:</label>
@@ -333,30 +333,35 @@
                 </div>
 
                 <div class="mb-3">
-                    <label class="block text-xs font-semibold text-indigo-900 mb-1">🔍 ابحث بالاسم أو جزء منه (يتجاهل الهمزات):</label>
-                    <input type="text" id="distSearchInput" oninput="loadDistributionList()" placeholder="اكتب جزءاً من اسم المستفيد للوصول الفوري..." class="w-full p-2.5 border-2 border-indigo-200 rounded-lg text-sm focus:border-indigo-600 focus:outline-none bg-indigo-50/30">
+                    <label class="block text-xs font-semibold text-indigo-900 mb-1">🔍 ابحث بالاسم أو جزء منه (يبقى التأشير محفوظاً عند البحث عن اسم آخر):</label>
+                    <div class="relative flex items-center">
+                        <input type="text" id="distSearchInput" oninput="loadDistributionList()" placeholder="اكتب جزءاً من اسم المستفيد للوصول الفوري..." class="w-full p-2.5 pl-8 border-2 border-indigo-200 rounded-lg text-sm focus:border-indigo-600 focus:outline-none bg-indigo-50/30">
+                        <button onclick="clearDistSearch()" title="مسح البحث" class="absolute left-2.5 text-slate-400 hover:text-slate-600 text-sm font-bold">✕</button>
+                    </div>
                 </div>
 
-                <!-- شريط التحديد وزر الاعتماد العلوي -->
-                <div class="flex flex-wrap justify-between items-center gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200 mb-3 text-xs sticky top-14 z-10 shadow-xs">
-                    <div class="flex items-center gap-3">
-                        <label class="flex items-center gap-2 cursor-pointer font-semibold text-indigo-700">
-                            <input type="checkbox" id="selectAllCheck" onchange="selectAllVisible(this.checked)" class="w-5 h-5 text-indigo-600 rounded border-slate-300 cursor-pointer disabled:opacity-30">
-                            تحديد الكل
-                        </label>
-                        <span id="selectionSummary" class="text-slate-700 font-bold">تم تحديد: 0 أفراد</span>
+                <!-- شريط التحديد وزر الاعتماد في الأعلى -->
+                <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 mb-3 space-y-2.5 sticky top-14 z-10 shadow-sm">
+                    <div class="flex flex-wrap justify-between items-center gap-2 text-xs">
+                        <div class="flex items-center gap-3">
+                            <label class="flex items-center gap-2 cursor-pointer font-semibold text-indigo-700">
+                                <input type="checkbox" id="selectAllCheck" onchange="selectAllVisible(this.checked)" class="w-5 h-5 text-indigo-600 rounded border-slate-300 cursor-pointer disabled:opacity-30">
+                                تحديد المعروض
+                            </label>
+                            <button onclick="clearAllSelections()" id="clearSelectionBtn" class="hidden text-rose-600 hover:underline font-semibold text-[11px]">
+                                إلغاء تحديد الكل
+                            </button>
+                        </div>
+                        <span id="selectionSummary" class="text-slate-700 font-bold bg-white px-2.5 py-1 rounded-lg border border-slate-200">تم تحديد: 0 أفراد</span>
                     </div>
 
-                    <button data-permission="add" onclick="confirmDistribution()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-2 rounded-lg shadow-sm transition text-xs flex items-center gap-1">
-                        ✓ اعتماد وحفظ الصرف للمحددين
+                    <button data-permission="add" onclick="confirmDistribution()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-lg shadow-sm transition text-sm">
+                        اعتماد وحفظ الصرف للمحددين
                     </button>
                 </div>
 
-                <div id="distributeList" class="space-y-2 mb-4 max-h-[28rem] overflow-y-auto"></div>
-
-                <button data-permission="add" onclick="confirmDistribution()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-lg shadow-md transition text-sm">
-                    اعتماد وحفظ الصرف للمحددين
-                </button>
+                <!-- قائمة المستفيدين كاملة بدون تمرير داخلي مخفي -->
+                <div id="distributeList" class="space-y-2 mb-4"></div>
             </div>
         </section>
 
@@ -476,7 +481,7 @@
         <section id="statementsSection" class="hidden-section">
             <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
                 <h2 class="text-base font-bold mb-1 text-indigo-700">كشوفات العطايا</h2>
-                <p class="text-[11px] text-slate-500 mb-3">كشف تجميعي لكل عطية: قائمة المستفيدين وإجمالي الكميات والمبالغ، مع الطباعة وPDF والمشاركة.</p>
+                <p class="text-[11px] text-slate-500 mb-3">كشف تجميعي لكل عطية مقسم على صفحات A4: قائمة المستفيدين وإجمالي الكميات والمبالغ، مع الطباعة وPDF والمشاركة.</p>
                 <div id="statementsList" class="space-y-2"></div>
             </div>
         </section>
@@ -497,8 +502,8 @@
             </div>
             <p id="stmtBusy" class="hidden text-center text-[11px] text-indigo-700 mt-1">جارٍ تجهيز الملف...</p>
         </div>
-        <div id="statementScale" class="p-2 flex justify-center">
-            <div id="statementSheet" class="bg-white shadow"></div>
+        <div id="statementScale" class="p-3 flex justify-center">
+            <div id="statementSheet"></div>
         </div>
     </div>
 
@@ -676,6 +681,11 @@
         let grants = JSON.parse(localStorage.getItem('alata_grants')) || [];
         let distributionLogs = JSON.parse(localStorage.getItem('alata_logs')) || [];
         let currentFilteredLogs = [];
+
+        // ذاكرة حفظ التأشيرات والكميات أثناء البحث والفرز المتعدد في الصرف الميداني
+        let selectedBenIds = new Set();
+        let customQuotas = {};
+
         let permissionRecords = {};
         let permissionState = { view: true, add: false, edit: false, reports: false, admin: false, bootstrap: false };
         const permissionKey = value => String(value || '').trim().toLowerCase().replace(/[.#$\[\]\/]/g, '_').replace(/@/g, '_at_');
@@ -685,7 +695,6 @@
             const all = Object.values(window.fbPermissionRecords || {});
             const record = (window.fbPermissionRecords || {})[permissionKey(email)] || all.find(x => String(x.email || '').toLowerCase() === email);
             if (record) return { view: record.view !== false, add: record.add === true, edit: record.edit === true, reports: record.reports === true, admin: record.admin === true };
-            // أول حساب يفتح النظام يكون مدير الإعداد الأول فقط، وبعد إنشاء أول سجل يصبح غير المدرجين اطلاعاً فقط.
             const hasAdmin = all.some(x => x.admin === true);
             const bootstrap = !all.length || !hasAdmin;
             return { view: true, add: bootstrap, edit: bootstrap, reports: bootstrap, admin: bootstrap, bootstrap };
@@ -713,7 +722,6 @@
             const email = normalizePermissionEmail(document.getElementById('permissionEmail').value); if (!email || !email.includes('@')) return;
             const record = { email, view: document.getElementById('permissionView').checked, add: document.getElementById('permissionAdd').checked, edit: document.getElementById('permissionEdit').checked, admin: document.getElementById('permissionAdmin').checked, reports: document.getElementById('permissionReports').checked, updatedBy: loggedUser, updatedAt: new Date().toISOString() };
             const updates = {}; updates[`permissions/${permissionKey(email)}`] = record;
-            // عند الإعداد الأول، احفظ الحساب الحالي كمدير حتى لا يفقد مدير النظام صلاحياته.
             if (permissionState.bootstrap && window.currentUserEmail) updates[`permissions/${permissionKey(window.currentUserEmail)}`] = { email: window.currentUserEmail, view: true, add: true, edit: true, reports: true, admin: true, updatedBy: loggedUser, updatedAt: new Date().toISOString() };
             try { await window.fbPermissionUpdate(updates); alert('تم حفظ صلاحيات المستخدم.'); e.target.reset(); document.getElementById('permissionView').checked = true; } catch (_) { alert('تعذر حفظ الصلاحيات في فايربيس.'); }
         }
@@ -724,7 +732,6 @@
             else window.location.replace('login.html');
         }
 
-        // نسخة محلية فورية + رفع التغييرات فقط (وليس كامل البيانات) إلى السحابة
         function syncToFirebase() {
             localStorage.setItem('alata_beneficiaries', JSON.stringify(beneficiaries));
             localStorage.setItem('alata_grants', JSON.stringify(grants));
@@ -772,7 +779,6 @@
                     return String(a.name || '').localeCompare(String(b.name || ''), 'ar');
                 });
             }
-            // الأحدث إضافة
             return copy.sort((a, b) => Number(b.id) - Number(a.id));
         }
 
@@ -813,7 +819,7 @@
 
         function getFullBackupData() {
             return {
-                version: '1.4',
+                version: '1.5',
                 exportDate: new Date().toISOString(),
                 beneficiaries,
                 grants,
@@ -1076,6 +1082,7 @@
             if (!requirePermission("edit")) return;
             if (!confirm('هل أنت متأكد من حذف هذا المستفيد؟')) return;
             beneficiaries = beneficiaries.filter(b => b.id != id);
+            selectedBenIds.delete(String(id));
             syncToFirebase();
             renderBeneficiaries();
             updateCategoryDropdowns();
@@ -1266,13 +1273,53 @@
             const grantSelect = document.getElementById('distGrantSelect');
             if (grants.length === 0) {
                 grantSelect.innerHTML = `<option value="">لا توجد عطايا مسجلة</option>`;
+                document.getElementById('distributeList').innerHTML = `<p class="text-center text-xs text-slate-400 py-6">لا توجد عطايا مسجلة.</p>`;
                 return;
             }
             const prevVal = grantSelect.value;
             grantSelect.innerHTML = grants.map(g => `<option value="${g.id}">${g.name} (${g.date})</option>`).join('');
-            if (prevVal && grants.some(g => g.id == prevVal)) grantSelect.value = prevVal;
+            if (prevVal && grants.some(g => g.id == prevVal)) {
+                grantSelect.value = prevVal;
+            } else {
+                selectedBenIds.clear();
+                customQuotas = {};
+            }
             updateCategoryDropdowns();
             loadDistributionList();
+        }
+
+        function onGrantSelectionChange() {
+            selectedBenIds.clear();
+            customQuotas = {};
+            loadDistributionList();
+        }
+
+        function clearDistSearch() {
+            const input = document.getElementById('distSearchInput');
+            if (input) {
+                input.value = '';
+                loadDistributionList();
+            }
+        }
+
+        function toggleBenSelection(benId, isChecked) {
+            const keyStr = String(benId);
+            if (isChecked) {
+                selectedBenIds.add(keyStr);
+            } else {
+                selectedBenIds.delete(keyStr);
+            }
+            updateSummary();
+        }
+
+        function saveCustomQuota(benId, val) {
+            customQuotas[String(benId)] = Number(val) || 1;
+        }
+
+        function clearAllSelections() {
+            selectedBenIds.clear();
+            document.querySelectorAll('.dist-check').forEach(cb => { cb.checked = false; });
+            updateSummary();
         }
 
         function loadDistributionList() {
@@ -1288,6 +1335,15 @@
             }
 
             const activeGrant = grants.find(g => g.id == grantId);
+            if (!activeGrant) return;
+
+            // استبعاد أي مستفيد من التحديد إذا كان قد استلم هذه العطية بالفعل
+            for (const idStr of [...selectedBenIds]) {
+                if (distributionLogs.some(l => String(l.beneficiaryId) === idStr && l.grantId == grantId)) {
+                    selectedBenIds.delete(idStr);
+                }
+            }
+
             let filtered = beneficiaries;
 
             if (category !== 'الكل') {
@@ -1309,11 +1365,13 @@
             list.innerHTML = filtered.map(b => {
                 const previousLogs = distributionLogs.filter(log => log.beneficiaryId === b.id && log.grantId == grantId);
                 const totalTaken = previousLogs.reduce((sum, item) => sum + Number(item.amount), 0);
+                const isSelected = totalTaken === 0 && selectedBenIds.has(String(b.id));
+                const quotaVal = customQuotas[String(b.id)] !== undefined ? customQuotas[String(b.id)] : activeGrant.defaultQuota;
 
                 return `
-                    <div class="p-3 bg-white border border-slate-200 rounded-xl flex items-center justify-between gap-2 shadow-xs hover:border-indigo-300">
+                    <div class="p-3 bg-white border ${isSelected ? 'border-indigo-500 bg-indigo-50/20' : 'border-slate-200'} rounded-xl flex items-center justify-between gap-2 shadow-xs hover:border-indigo-300">
                         <div class="flex items-start gap-2.5 flex-1">
-                            <input type="checkbox" value="${b.id}" onchange="updateSummary()" ${totalTaken > 0 ? 'disabled' : ''} class="dist-check disabled:opacity-30 mt-1 w-5 h-5 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer">
+                            <input type="checkbox" value="${b.id}" ${isSelected ? 'checked' : ''} onchange="toggleBenSelection('${b.id}', this.checked)" ${totalTaken > 0 ? 'disabled' : ''} class="dist-check disabled:opacity-30 mt-1 w-5 h-5 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer">
                             <div>
                                 <span class="font-bold text-slate-800 text-sm block">${b.name}</span>
                                 <div class="text-[11px] text-slate-500 flex flex-wrap items-center gap-x-2 mt-0.5">
@@ -1329,8 +1387,8 @@
                                 ${totalTaken > 0 ? `✓ استلم: ${totalTaken}` : 'لم يستلم'}
                             </span>
                             <div class="flex items-center gap-1">
-                                <input type="number" id="quota-${b.id}" value="${activeGrant.defaultQuota}" min="1" ${totalTaken > 0 ? 'disabled' : ''} class="disabled:opacity-40 w-14 p-1 text-center font-bold border border-slate-300 rounded text-xs focus:ring-1 focus:ring-indigo-500">
-                                <button data-permission="add" onclick="quickDistributeOne(${b.id})" ${totalTaken > 0 ? 'disabled' : ''} class="disabled:opacity-40 disabled:pointer-events-none bg-indigo-50 hover:bg-indigo-600 hover:text-white text-indigo-700 font-semibold px-2 py-1 rounded text-[11px] border border-indigo-200 transition">
+                                <input type="number" id="quota-${b.id}" value="${quotaVal}" min="1" oninput="saveCustomQuota('${b.id}', this.value)" ${totalTaken > 0 ? 'disabled' : ''} class="disabled:opacity-40 w-14 p-1 text-center font-bold border border-slate-300 rounded text-xs focus:ring-1 focus:ring-indigo-500">
+                                <button data-permission="add" onclick="quickDistributeOne('${b.id}')" ${totalTaken > 0 ? 'disabled' : ''} class="disabled:opacity-40 disabled:pointer-events-none bg-indigo-50 hover:bg-indigo-600 hover:text-white text-indigo-700 font-semibold px-2 py-1 rounded text-[11px] border border-indigo-200 transition">
                                     صرف فوري
                                 </button>
                             </div>
@@ -1348,9 +1406,12 @@
             if (!grantId) return alert('يرجى تحديد العطية أولاً.');
 
             const activeGrant = grants.find(g => g.id == grantId);
-            const amount = document.getElementById(`quota-${benId}`).value || 1;
+            const quotaInput = document.getElementById(`quota-${benId}`);
+            const amount = (quotaInput ? quotaInput.value : customQuotas[String(benId)]) || activeGrant.defaultQuota || 1;
             const ben = beneficiaries.find(b => b.id == benId);
-            if (distributionLogs.some(l => l.beneficiaryId == benId && l.grantId == activeGrant.id)) {
+            if (!ben) return;
+
+            if (distributionLogs.some(l => l.beneficiaryId == ben.id && l.grantId == activeGrant.id)) {
                 return alert(`(${ben.name}) استلم هذه العطية مسبقاً.`);
             }
 
@@ -1363,69 +1424,98 @@
                 grantId: activeGrant.id,
                 grantName: activeGrant.name,
                 grantDonor: activeGrant.donor || 'فاعل خير',
-                beneficiaryId: benId,
+                beneficiaryId: ben.id,
                 amount: Number(amount),
                 timestamp: dateStr,
                 rawDate: todayISO,
                 createdByUser: loggedUser
             });
 
+            selectedBenIds.delete(String(ben.id));
             syncToFirebase();
             alert(`تم صرف (${amount}) لـ (${ben.name}) بنجاح.`);
             loadDistributionList();
         }
 
         function selectAllVisible(status) {
-            document.querySelectorAll('.dist-check').forEach(cb => { if (!cb.disabled) cb.checked = status; });
+            document.querySelectorAll('.dist-check').forEach(cb => {
+                if (!cb.disabled) {
+                    cb.checked = status;
+                    if (status) {
+                        selectedBenIds.add(String(cb.value));
+                    } else {
+                        selectedBenIds.delete(String(cb.value));
+                    }
+                }
+            });
             updateSummary();
         }
 
         function updateSummary() {
-            const enabled = document.querySelectorAll('.dist-check:not(:disabled)').length;
-            const count = document.querySelectorAll('.dist-check:checked:not(:disabled)').length;
-            document.getElementById('selectionSummary').innerText = `تم تحديد: ${count} أفراد`;
+            const visibleEnabled = [...document.querySelectorAll('.dist-check:not(:disabled)')];
+            const visibleChecked = visibleEnabled.filter(cb => cb.checked).length;
+            const totalSelected = selectedBenIds.size;
+
+            document.getElementById('selectionSummary').innerText = `تم تحديد: ${totalSelected} أفراد`;
+
+            const clearBtn = document.getElementById('clearSelectionBtn');
+            if (clearBtn) {
+                clearBtn.classList.toggle('hidden', totalSelected === 0);
+            }
+
             const master = document.getElementById('selectAllCheck');
             if (master) {
-                master.disabled = enabled === 0;
-                master.checked = enabled > 0 && count === enabled;
-                master.indeterminate = count > 0 && count < enabled;
+                master.disabled = visibleEnabled.length === 0;
+                master.checked = visibleEnabled.length > 0 && visibleChecked === visibleEnabled.length;
+                master.indeterminate = visibleChecked > 0 && visibleChecked < visibleEnabled.length;
             }
         }
 
         function confirmDistribution() {
             if (!requirePermission("add")) return;
             const grantId = document.getElementById('distGrantSelect').value;
-            const checkedBoxes = document.querySelectorAll('.dist-check:checked:not(:disabled)');
 
             if (!grantId) return alert('يرجى تحديد العطية أولاً.');
-            if (checkedBoxes.length === 0) return alert('يرجى تأشير مستفيد واحد على الأقل.');
+            if (selectedBenIds.size === 0) return alert('يرجى تأشير مستفيد واحد على الأقل.');
 
             const activeGrant = grants.find(g => g.id == grantId);
             const todayISO = todayLocal();
             const now = new Date();
             const dateStr = now.toLocaleDateString('ar-YE') + ' ' + now.toLocaleTimeString('ar-YE', {hour: '2-digit', minute:'2-digit'});
 
+            let savedCount = 0;
             let skipped = 0;
-            checkedBoxes.forEach(cb => {
-                const benId = Number(cb.value);
-                if (distributionLogs.some(l => l.beneficiaryId == benId && l.grantId == activeGrant.id)) { skipped++; return; }
-                const amount = document.getElementById(`quota-${benId}`).value || 1;
+
+            for (const idStr of [...selectedBenIds]) {
+                const ben = beneficiaries.find(b => String(b.id) === idStr);
+                if (!ben) continue;
+
+                if (distributionLogs.some(l => String(l.beneficiaryId) === idStr && l.grantId == activeGrant.id)) {
+                    skipped++;
+                    continue;
+                }
+
+                const domInput = document.getElementById(`quota-${ben.id}`);
+                const amount = (domInput ? domInput.value : customQuotas[idStr]) || activeGrant.defaultQuota || 1;
 
                 distributionLogs.unshift({
                     id: Date.now() + Math.random(),
                     grantId: activeGrant.id,
                     grantName: activeGrant.name,
                     grantDonor: activeGrant.donor || 'فاعل خير',
-                    beneficiaryId: benId,
+                    beneficiaryId: ben.id,
                     amount: Number(amount),
                     timestamp: dateStr,
                     rawDate: todayISO,
                     createdByUser: loggedUser
                 });
-            });
+                savedCount++;
+            }
 
+            selectedBenIds.clear();
+            customQuotas = {};
             syncToFirebase();
-            alert(`تم حفظ الصرف لعدد (${checkedBoxes.length - skipped}) مستفيد.` + (skipped ? `\nتم تخطي ${skipped} لاستلامهم هذه العطية مسبقاً.` : ''));
+            alert(`تم حفظ الصرف لعدد (${savedCount}) مستفيد.` + (skipped ? `\nتم تخطي ${skipped} لاستلامهم هذه العطية مسبقاً.` : ''));
             showSection('reportsSection');
         }
 
@@ -1628,7 +1718,7 @@
             let msg = `📋 *كشف صرف العطايا والمساعدات*\n`;
             msg += `📅 التاريخ: ${new Date().toLocaleDateString('ar-YE')}\n`;
             if (filterDesc && filterDesc !== 'عرض شامل بدون تصفية') {
-                msg += `🏷️ ${filterDesc}\n`;
+                msg += `🏷️️ ${filterDesc}\n`;
             }
             msg += `--------------------------------\n`;
 
@@ -1665,7 +1755,7 @@
             html2pdf().set(opt).from(element).save();
         }
 
-        // ================= كشوفات العطايا (الكشف التجميعي) =================
+        // ================= كشوفات العطايا (الكشف التجميعي المقسم لصفحات A4) =================
         function todayLocal() {
             const d = new Date();
             return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -1740,7 +1830,7 @@
             </div>`;
         }
 
-        // ---------- بناء صفحات الكشف (ترويسة متكررة + ترقيم) ----------
+        // ---------- بناء صفحات الكشف (ترويسة متكررة + ترقيم صفحات مستقل) ----------
         function getStmtThead(d) {
             if (d.hasMoney) {
                 return `<thead><tr>
@@ -1826,11 +1916,13 @@
             </tr>`;
         }
 
-        // يقيس ارتفاع الصفوف ثم يوزّعها على صفحات A4 ثابتة الارتفاع
+        // يقيس ارتفاع الصفوف الفعلي ويوزعها على صفحات A4 مستقلة تماماً
         async function buildStatementPagesHTML(d) {
             try { await document.fonts.load('400 13px Tajawal'); await document.fonts.load('700 13px Tajawal'); } catch (e) {}
 
-            const PAGE_H = 1040, FOOT_H = 34, MAX = PAGE_H - FOOT_H, GAP = 14, SIGN_GAP = 26;
+            // المساحة الصافية داخل الصفحة الواحدة بعد الحواشي والتذييل
+            const MAX_CONTENT_H = 975;
+            const GAP = 14, SIGN_GAP = 26;
             const theadHtml = getStmtThead(d);
             const colSpanCount = d.hasMoney ? 7 : 6;
             const rowsHtml = d.rows.length
@@ -1838,29 +1930,30 @@
                 : [`<tr><td colspan="${colSpanCount}" class="c" style="padding:18px;color:#64748b">لم تُصرف هذه العطية لأي مستفيد بعد.</td></tr>`];
             const tfoot = statementTfootHTML(d);
 
-            // 1) القياس
+            // 1) القياس الدقيق بعرض الصفحة الفعلي (686px داخل الحواشي)
             const m = document.createElement('div');
             m.className = 'stmt-sheet';
-            m.style.cssText = 'position:fixed;left:-10000px;top:0;visibility:hidden';
+            m.style.cssText = 'position:fixed;left:-10000px;top:0;width:686px;visibility:hidden;background:#fff;';
             m.innerHTML = `${statementTopHTML(d)}${statementCompactHTML(d)}
                 <table class="stmt-table">${theadHtml}<tbody>${rowsHtml.join('')}</tbody><tfoot>${tfoot}</tfoot></table>
                 ${signatureBlockHTML()}`;
             document.body.appendChild(m);
-            const h = el => Math.ceil(el.getBoundingClientRect().height);
-            const topH = h(m.querySelector('.stmt-top'));
-            const cmpH = h(m.querySelector('.stmt-compact'));
+
+            const h = el => (el ? Math.ceil(el.getBoundingClientRect().height) : 0);
+            const topH = h(m.querySelector('.stmt-top')) || 220;
+            const cmpH = h(m.querySelector('.stmt-compact')) || 38;
             const table = m.querySelector('.stmt-table');
-            const theadH = h(table.tHead);
-            const tfootH = h(table.tFoot);
-            const rowH = [...table.tBodies[0].rows].map(h);
-            const signH = h(m.querySelector('.stmt-sign'));
+            const theadH = h(table.tHead) || 34;
+            const tfootH = h(table.tFoot) || 34;
+            const rowH = [...table.tBodies[0].rows].map(r => h(r) || 30);
+            const signH = h(m.querySelector('.stmt-sign')) || 115;
             m.remove();
 
-            // 2) التوزيع
+            // 2) توزيع الصفوف على صفحات متعددة
             const pages = [];
             let cur = { rows: [], used: topH + GAP + theadH, tfoot: false, sign: false };
             rowH.forEach((rh, i) => {
-                if (cur.rows.length && cur.used + rh > MAX) {
+                if (cur.rows.length > 0 && (cur.used + rh > MAX_CONTENT_H)) {
                     pages.push(cur);
                     cur = { rows: [], used: cmpH + GAP + theadH, tfoot: false, sign: false };
                 }
@@ -1870,16 +1963,19 @@
             pages.push(cur);
 
             const last = pages[pages.length - 1];
-            if (last.used + tfootH <= MAX) {
+            if (last.used + tfootH <= MAX_CONTENT_H) {
                 last.tfoot = true;
                 last.used += tfootH;
-                if (last.used + SIGN_GAP + signH <= MAX) last.sign = true;
-                else pages.push({ rows: [], tfoot: false, sign: true });
+                if (last.used + SIGN_GAP + signH <= MAX_CONTENT_H) {
+                    last.sign = true;
+                } else {
+                    pages.push({ rows: [], tfoot: false, sign: true });
+                }
             } else {
                 pages.push({ rows: [], tfoot: true, sign: true });
             }
 
-            // 3) البناء
+            // 3) بناء الصفحات المستقلة
             const n = pages.length;
             const body = pages.map((p, pi) => {
                 const head = pi === 0 ? statementTopHTML(d) : statementCompactHTML(d);
@@ -1952,11 +2048,11 @@
         function openStatement(id) {
             ensureDocNos();
             currentStatementId = id;
-            refreshStatement();
             const v = document.getElementById('statementViewer');
             v.classList.remove('hidden');
             v.scrollTop = 0;
             document.body.style.overflow = 'hidden';
+            refreshStatement();
         }
 
         let stmtRenderToken = 0;
@@ -1968,7 +2064,7 @@
             if (tok !== stmtRenderToken || currentStatementId === null) return;
             const host = document.getElementById('statementSheet');
             host.innerHTML = html;
-            const sc = Math.min(1, (window.innerWidth - 16) / 718);
+            const sc = Math.min(1, (window.innerWidth - 24) / 718);
             host.style.zoom = sc < 1 ? sc : '';
         }
 
