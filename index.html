@@ -20,8 +20,8 @@
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: system-ui, -apple-system, sans-serif; background-color: #f8fafc; }
-        /* ضمان إخفاء جميع الأقسام وإظهار القسم النشط فقط دون أي تداخل */
+        body { font-family: 'Tajawal', system-ui, -apple-system, sans-serif; background-color: #f8fafc; }
+        /* ضمان إخفاء جميع الأقسام وإظهار القسم النشط فقط */
         main > section { display: none !important; }
         main > section.active-section { display: block !important; }
         input[type="date"] { direction: rtl; text-align: right; }
@@ -29,10 +29,22 @@
             nav, header, .no-print { display: none !important; }
             .print-area { display: block !important; }
         }
-        /* ===== كشف العطية (عرض + طباعة A4 + PDF) ===== */
-        .stmt-sheet { font-family: 'Tajawal','Segoe UI',Tahoma,sans-serif; direction: rtl; width: 718px; background: transparent; color: #0f172a; font-size: 13px; line-height: 1.6; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        /* كشف العطية (عرض + طباعة A4 + PDF) */
+        .stmt-sheet { font-family: 'Tajawal', Tahoma, sans-serif; direction: rtl; width: 718px; background: transparent; color: #0f172a; font-size: 13px; line-height: 1.6; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         .stmt-head { text-align: center; border-bottom: 2px solid #1e293b; padding-bottom: 8px; margin-bottom: 12px; }
-        .stmt-head .basmala { font-size: 15px; font-weight: 700; color: #0f172a; margin-bottom: 4px; letter-spacing: 0.3px; }
+        .stmt-head .basmala { 
+            font-family: 'Tajawal', Tahoma, sans-serif !important; 
+            font-size: 16px; 
+            font-weight: 700; 
+            color: #0f172a; 
+            margin: 0 auto 6px auto; 
+            letter-spacing: normal !important; 
+            word-spacing: normal !important; 
+            direction: rtl !important; 
+            unicode-bidi: isolate !important;
+            display: block;
+            text-align: center;
+        }
         .stmt-head .org { font-size: 12px; color: #475569; }
         .stmt-head h1 { font-size: 22px; font-weight: 700; margin: 2px 0 0; }
         .stmt-meta { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
@@ -67,7 +79,6 @@
         }
     </style>
     <script>
-        // إخفاء الصفحة حتى يتم التحقق من تسجيل الدخول (Firebase Auth)
         document.documentElement.style.visibility = 'hidden';
         setTimeout(() => { document.documentElement.style.visibility = 'visible'; }, 8000);
     </script>
@@ -86,14 +97,13 @@
             </div>
             
             <div class="flex items-center gap-2 text-xs">
-                <!-- شارة المستخدم الحالي -->
                 <div class="bg-indigo-800/80 px-2.5 py-1 rounded-lg border border-indigo-500/40 flex items-center gap-1 text-[11px]">
                     <span>👤</span>
                     <span id="displayUserName" class="font-bold text-amber-200"></span>
                 </div>
 
                 <button type="button" onclick="openBackupModal()" class="text-xs bg-indigo-800 hover:bg-indigo-900 px-2.5 py-1.5 rounded-lg border border-indigo-400 flex items-center gap-1 shadow-sm transition">
-                    ☁️ النسخ
+                    ☁️️ النسخ
                 </button>
 
                 <button type="button" onclick="logoutUser()" title="تسجيل الخروج" class="text-xs bg-rose-600 hover:bg-rose-700 px-2 py-1.5 rounded-lg border border-rose-400 flex items-center gap-1 shadow-sm transition">
@@ -115,7 +125,7 @@
             <button type="button" onclick="showSection('permissionsSection')" id="nav-permissionsSection" class="nav-btn hidden bg-white py-2.5 px-1 rounded-lg border border-amber-200 text-amber-800 shadow-sm text-center">صلاحيات المستخدمين</button>
         </nav>
 
-        <!-- ================= إدارة صلاحيات المستخدمين ================= -->
+        <!-- إدارة صلاحيات المستخدمين -->
         <section id="permissionsSection" class="hidden-section">
             <div class="bg-amber-50 border border-amber-200 p-3 rounded-xl mb-4 text-xs">
                 <h2 class="font-bold text-amber-900 text-base mb-1">إدارة صلاحيات المستخدمين</h2>
@@ -373,12 +383,12 @@
                     </button>
                 </div>
 
-                <!-- قائمة المستفيدين كاملة بدون تمرير داخلي مخفي -->
+                <!-- قائمة المستفيدين -->
                 <div id="distributeList" class="space-y-2 mb-4"></div>
             </div>
         </section>
 
-        <!-- ================= 4. قسم التقارير المحدث ================= -->
+        <!-- ================= 4. قسم التقارير ================= -->
         <section id="reportsSection" class="hidden-section">
             <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 mb-4 no-print">
                 <div class="flex justify-between items-center mb-3">
@@ -467,7 +477,7 @@
 
                 <div id="pdfReportArea" class="overflow-x-auto p-3 bg-white rounded-lg border border-slate-100">
                     <div class="text-center pb-3 border-b mb-3 border-slate-200">
-                        <p class="text-xs font-bold text-slate-800 mb-1">بسم الله الرحمن الرحيم</p>
+                        <div class="basmala font-bold text-slate-800 text-sm mb-1" style="font-family:'Tajawal',Tahoma,sans-serif; direction:rtl; unicode-bidi:isolate;">بسم الله الرحمن الرحيم</div>
                         <h3 class="text-base font-bold text-slate-800">كشف صرف العطايا والمساعدات</h3>
                         <p class="text-[11px] text-slate-500 mt-0.5">تاريخ التقرير: <span id="reportPrintDate"></span></p>
                         <p id="activeFilterDesc" class="text-[10px] text-indigo-700 font-semibold mt-1"></p>
@@ -525,7 +535,7 @@
         </div>
     </div>
 
-    <!-- نافذة تأكيد حذف الكشف (مع التخيير بين حذف الكشف فقط أو مع العطية) -->
+    <!-- نافذة تأكيد حذف الكشف -->
     <div id="deleteStatementModal" class="hidden fixed inset-0 bg-slate-900/60 flex items-center justify-center p-4" style="z-index:70">
         <div class="bg-white rounded-2xl max-w-sm w-full p-5 shadow-2xl border border-rose-200">
             <h3 class="text-base font-bold text-rose-700 mb-2">⚠️ خيارات حذف الكشف</h3>
@@ -560,7 +570,7 @@
         </div>
     </div>
 
-    <!-- نافذة إضافة مستفيد للكشف مباشرة من قسم التقارير أو الكشف -->
+    <!-- نافذة إضافة مستفيد للكشف -->
     <div id="addLogFromReportModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4" style="z-index:75">
         <div class="bg-white rounded-2xl max-w-md w-full p-5 shadow-2xl border border-slate-100">
             <div class="flex justify-between items-center mb-3 border-b border-slate-100 pb-2">
@@ -597,7 +607,7 @@
         </div>
     </div>
 
-    <!-- نافذة تأكيد الخروج عند تمرير العودة أو زر التراجع -->
+    <!-- نافذة تأكيد الخروج -->
     <div id="exitConfirmModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4" style="z-index:80">
         <div class="bg-white rounded-2xl max-w-xs w-full p-5 shadow-2xl border border-slate-200 text-center">
             <div class="w-12 h-12 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center mx-auto mb-3 text-2xl">🚪</div>
@@ -611,7 +621,7 @@
     </div>
 
 
-    <!-- Firebase: Auth + Realtime Database (تحديثات جزئية لكل سجل) -->
+    <!-- Firebase: Auth + Realtime Database -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
         import { getDatabase, ref, update, onValue, get } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
@@ -632,8 +642,8 @@
         const db = getDatabase(app);
         const auth = getAuth(app);
 
-        const ROOT = 'atp_v2';      // الهيكل الجديد: كل سجل بمفتاحه
-        const OLD  = 'atp_data';    // الهيكل القديم: يبقى كما هو كنسخة احتياطية
+        const ROOT = 'atp_v2';
+        const OLD  = 'atp_data';
         const COLS = ['beneficiaries', 'grants', 'distributionLogs'];
         let permissionRecords = {};
         window.fbPermissionRecords = {};
@@ -648,7 +658,7 @@
                           .sort((a, b) => Number(b.id) - Number(a.id));
         };
 
-        let last = { beneficiaries: {}, grants: {}, distributionLogs: {} }; // آخر حالة معروفة في السحابة
+        let last = { beneficiaries: {}, grants: {}, distributionLogs: {} };
         let ready = false;
 
         window.fbSetBadge = (state) => {
@@ -665,7 +675,6 @@
         window.fbSignOut = () => signOut(auth);
         window.fbPermissionUpdate = updates => update(ref(db, ROOT), updates);
 
-        // رفع السجلات المتغيرة فقط، وحذف المحذوفة بدقة تامة؛ لا يستبدل بيانات الآخرين
         window.fbPush = async function () {
             if (!ready) return;
             const cur = { beneficiaries, grants, distributionLogs };
@@ -725,7 +734,6 @@
             started = true;
             const rootRef = ref(db, ROOT);
             try {
-                // ترحيل لمرة واحدة من الهيكل القديم إذا كان الجديد فارغاً
                 const snap = await get(rootRef);
                 if (!snap.exists()) {
                     const old = await get(ref(db, OLD)).catch(() => null);
@@ -749,7 +757,7 @@
                 window.fbPermissionRecords = permissionRecords;
                 window.setPermissionRecords && window.setPermissionRecords(permissionRecords);
                 applyAndRender(rootData);
-                ready = true;   // لا كتابة قبل أول قراءة ناجحة
+                ready = true;
                 window.fbSetBadge('ok');
             }, (error) => {
                 console.error('Firebase Sync Error:', error);
@@ -771,14 +779,12 @@
 
 
     <script>
-        // مولد معرفات صحيحة بدون فواصل عشرية لضمان تطابق مفاتيح Firebase
         let _uidSeq = 0;
         function uidGen() {
             return (Date.now() * 1000) + ((++_uidSeq) % 1000);
         }
 
-        // إظهار اسم المسؤول النشط
-        let loggedUser = 'مسؤول'; // يُحدَّث من حساب Firebase بعد الدخول
+        let loggedUser = 'مسؤول';
         const displayElem = document.getElementById('displayUserName');
         if (displayElem) displayElem.innerText = loggedUser;
 
@@ -790,7 +796,6 @@
         let currentFilteredLogs = [];
         let activeSectionId = 'beneficiariesSection';
 
-        // ذاكرة حفظ التأشيرات والكميات أثناء البحث والفرز المتعدد في الصرف الميداني
         let selectedBenIds = new Set();
         let customQuotas = {};
 
@@ -811,7 +816,6 @@
         function requirePermission(action) { if (can(action)) return true; alert(action === 'add' ? 'ليس لديك صلاحية الإضافة.' : action === 'edit' ? 'ليس لديك صلاحية التعديل أو الحذف.' : 'ليس لديك صلاحية الاطلاع.'); return false; }
         window.setPermissionRecords = records => { window.fbPermissionRecords = records || {}; permissionRecords = window.fbPermissionRecords; permissionState = currentPermission(); applyPermissionUI(); renderPermissions(); };
 
-        // تحديث واجهة الصلاحيات دون إظهار جميع الأقسام معاً
         function applyPermissionUI() {
             document.querySelectorAll('[data-permission]').forEach(el => {
                 const ok = can(el.dataset.permission);
@@ -863,7 +867,7 @@
             else window.location.replace('login.html');
         }
 
-        // ================= شاشة تأكيد الخروج عند تمرير العودة أو زر التراجع =================
+        // ================= شاشة تأكيد الخروج والتراجع =================
         let allowExitNavigation = false;
         function pushExitGuardState() {
             try {
@@ -876,7 +880,6 @@
             window.addEventListener('popstate', () => {
                 if (allowExitNavigation) return;
 
-                // إغلاق أي نافذة منبثقة مفتوحة أولاً عند الضغط على رجوع بدلاً من الخروج المباشر
                 const stmtViewer = document.getElementById('statementViewer');
                 const delStmtModal = document.getElementById('deleteStatementModal');
                 const addRepModal = document.getElementById('addLogFromReportModal');
@@ -903,7 +906,6 @@
                     return;
                 }
 
-                // إظهار شاشة تأكيد الخروج
                 const exitModal = document.getElementById('exitConfirmModal');
                 if (exitModal) exitModal.classList.remove('hidden');
                 pushExitGuardState();
@@ -952,7 +954,6 @@
                 .toLowerCase();
         }
 
-        // دالة فرز المستفيدين المشتركة (الأبجدية / نسبة الاحتياج / الأحدث)
         function sortBeneficiariesList(arr, sortMode) {
             const copy = [...arr];
             if (sortMode === 'alpha') {
@@ -977,7 +978,6 @@
             return copy.sort((a, b) => Number(b.id) - Number(a.id));
         }
 
-        // دالة التنقل بين الصفحات والأقسام بشكل معزول ومضمون
         function showSection(sectionId) {
             if (sectionId === 'permissionsSection' && !permissionState.admin) return alert('هذه الصفحة متاحة لمدير الصلاحيات فقط.');
             if (!permissionState.view) return alert('ليس لديك صلاحية الاطلاع.');
@@ -1478,7 +1478,7 @@
             `}).join('');
         }
 
-        // ================= الصرف الميداني وتوثيق المستخدم =================
+        // ================= الصرف الميداني =================
         function initDistributeSection() {
             const grantSelect = document.getElementById('distGrantSelect');
             if (grants.length === 0) {
@@ -1547,7 +1547,6 @@
             const activeGrant = grants.find(g => String(g.id) === String(grantId));
             if (!activeGrant) return;
 
-            // استبعاد أي مستفيد من التحديد إذا كان قد استلم هذه العطية بالفعل
             for (const idStr of [...selectedBenIds]) {
                 if (distributionLogs.some(l => String(l.beneficiaryId) === idStr && String(l.grantId) === String(grantId))) {
                     selectedBenIds.delete(idStr);
@@ -1786,7 +1785,7 @@
 
             currentFilteredLogs = distributionLogs.filter(log => {
                 const ben = beneficiaries.find(b => String(b.id) === String(log.beneficiaryId));
-                if (!ben) return false; // تجاهل أي سجل لمستفيد غير موجود
+                if (!ben) return false;
                 const grant = grants.find(g => String(g.id) === String(log.grantId)) || {};
 
                 const benName = ben.name || '';
@@ -1875,7 +1874,6 @@
             const ben = beneficiaries.find(b => String(b.id) === String(target.beneficiaryId));
             if (!confirm(`هل تريد إلغاء وحذف (${ben ? ben.name : 'هذا المستفيد'}) من كشف (${target.grantName})؟`)) return;
 
-            // حذف جميع حركات الصرف لهذا المستفيد في نفس العطية لضمان اختفائه نهائياً من كشف العطية والتقارير
             distributionLogs = distributionLogs.filter(l =>
                 !(String(l.id) === String(logId) ||
                   (String(l.grantId) === String(target.grantId) && String(l.beneficiaryId) === String(target.beneficiaryId)))
@@ -1886,7 +1884,6 @@
             if (!document.getElementById('statementViewer').classList.contains('hidden')) refreshStatement();
         }
 
-        // حذف أو تعديل مستفيد مباشرة من داخل عارض كشف العطية
         function removeBeneficiaryFromStatement(grantId, benId) {
             if (!requirePermission("edit")) return;
             const ben = beneficiaries.find(b => String(b.id) === String(benId));
@@ -1910,7 +1907,6 @@
             const num = Number(newAmount);
             if (isNaN(num) || num <= 0) return alert('يرجى إدخال كمية صحيحة أكبر من صفر.');
 
-            // الاحتفاظ بسجل واحد بالكمية المحدثة وإزالة أي تكرار لنفس المستفيد في نفس العطية
             const firstLog = matching[0];
             firstLog.amount = num;
             const extraIds = new Set(matching.slice(1).map(x => String(x.id)));
@@ -1928,7 +1924,7 @@
             openAddLogFromReportModal(currentStatementId);
         }
 
-        // ================= إضافة مستفيد للكشف مباشرة من قسم التقارير أو الكشوفات =================
+        // ================= إضافة مستفيد للكشف =================
         function openAddLogFromReportModal(forcedGrantId) {
             if (!requirePermission("add")) return;
             if (grants.length === 0) return alert('يرجى تسجيل عطية أولاً في قسم العطايا.');
@@ -2040,7 +2036,7 @@
             alert(`تمت إضافة (${ben.name}) إلى كشف (${activeGrant.name}) بنجاح.`);
         }
 
-        // ================= الحل الذكي لمشاركة PDF في الواتساب =================
+        // ================= مشاركة PDF والواتساب =================
         async function sharePDFToWhatsAppSmart() {
             if (currentFilteredLogs.length === 0) return alert('لا توجد بيانات لمشاركتها.');
 
@@ -2052,7 +2048,7 @@
                 margin:       [8, 8, 8, 8],
                 filename:     fileName,
                 image:        { type: 'jpeg', quality: 0.98 },
-                html2canvas:  { scale: 2, useCORS: true },
+                html2canvas:  { scale: 2, useCORS: true, letterRendering: true },
                 jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
             };
 
@@ -2109,7 +2105,7 @@
             msg += `--------------------------------\n`;
             msg += `👥 إجمالي المستفيدين: ${currentFilteredLogs.length}\n`;
             msg += `📦 إجمالي العطايا: ${totalAmount}\n\n`;
-            msg += `✍️ 1. إعداد المختص: ..............\n✍️️ 2. اعتمد من: ..............`;
+            msg += `✍️ 1. إعداد المختص: ..............\n✍️ 2. اعتمد من: ..............`;
 
             const url = `whatsapp://send?text=${encodeURIComponent(msg)}`;
             window.location.href = url;
@@ -2125,13 +2121,13 @@
                 margin:       [8, 8, 8, 8],
                 filename:     `تقرير_العطايا_${todayLocal()}.pdf`,
                 image:        { type: 'jpeg', quality: 0.98 },
-                html2canvas:  { scale: 2, useCORS: true },
+                html2canvas:  { scale: 2, useCORS: true, letterRendering: true },
                 jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
             };
             html2pdf().set(opt).from(element).save();
         }
 
-        // ================= كشوفات العطايا (الكشف التجميعي المقسم لصفحات A4) =================
+        // ================= كشوفات العطايا (A4) =================
         function todayLocal() {
             const d = new Date();
             return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -2177,7 +2173,7 @@
             const byBen = new Map();
             distributionLogs.filter(l => String(l.grantId) === String(grantId)).forEach(l => {
                 const benObj = beneficiaries.find(b => String(b.id) === String(l.beneficiaryId));
-                if (!benObj) return; // استبعاد أي مستفيد تم حذفه حتى لا يظهر في الكشف
+                if (!benObj) return;
                 const k = String(benObj.id);
                 if (!byBen.has(k)) byBen.set(k, { ben: benObj, amount: 0 });
                 byBen.get(k).amount += Number(l.amount) || 0;
@@ -2208,7 +2204,6 @@
             </div>`;
         }
 
-        // ---------- بناء صفحات الكشف (ترويسة متكررة + ترقيم صفحات مستقل + البسملة في الصفحة الأولى) ----------
         function getStmtThead(d, forExport = false) {
             const actCol = (!forExport && can('edit')) ? `<th class="no-print" style="width:10%">إجراء</th>` : '';
             if (d.hasMoney) {
@@ -2268,7 +2263,7 @@
                 : '';
             return `<div class="stmt-top">
                 <div class="stmt-head">
-                    <div class="basmala">بسم الله الرحمن الرحيم</div>
+                    <div class="basmala font-bold text-slate-800 text-sm mb-1" style="font-family:'Tajawal',Tahoma,sans-serif; direction:rtl; unicode-bidi:isolate;">بسم الله الرحمن الرحيم</div>
                     <div class="org">سجل العطايا والمستفيدين</div>
                     <h1>كشف صرف عطية</h1>
                 </div>
@@ -2309,7 +2304,6 @@
             </tr>`;
         }
 
-        // يقيس ارتفاع الصفوف الفعلي ويوزعها على صفحات A4 مستقلة تماماً
         async function buildStatementPagesHTML(d, forExport = false) {
             try { await document.fonts.load('400 13px Tajawal'); await document.fonts.load('700 13px Tajawal'); } catch (e) {}
 
@@ -2323,7 +2317,6 @@
                 : [`<tr><td colspan="${colSpanCount}" class="c" style="padding:18px;color:#64748b">لم تُصرف هذه العطية لأي مستفيد بعد.</td></tr>`];
             const tfoot = statementTfootHTML(d, forExport);
 
-            // 1) القياس الدقيق بعرض الصفحة الفعلي (686px داخل الحواشي)
             const m = document.createElement('div');
             m.className = 'stmt-sheet';
             m.style.cssText = 'position:fixed;left:-10000px;top:0;width:686px;visibility:hidden;background:#fff;';
@@ -2342,7 +2335,6 @@
             const signH = h(m.querySelector('.stmt-sign')) || 115;
             m.remove();
 
-            // 2) توزيع الصفوف على صفحات متعددة
             const pages = [];
             let cur = { rows: [], used: topH + GAP + theadH, tfoot: false, sign: false };
             rowH.forEach((rh, i) => {
@@ -2368,7 +2360,6 @@
                 pages.push({ rows: [], tfoot: true, sign: true });
             }
 
-            // 3) بناء الصفحات المستقلة
             const n = pages.length;
             const body = pages.map((p, pi) => {
                 const head = pi === 0 ? statementTopHTML(d) : statementCompactHTML(d);
@@ -2403,7 +2394,6 @@
             return t;
         }
 
-        // ---------- القائمة ----------
         function renderStatementsList() {
             ensureDocNos();
             const list = document.getElementById('statementsList');
@@ -2437,7 +2427,6 @@
             }).join('');
         }
 
-        // ---------- العارض ----------
         function openStatement(id) {
             ensureDocNos();
             currentStatementId = id;
@@ -2467,7 +2456,6 @@
             currentStatementId = null;
         }
 
-        // ---------- الطباعة ----------
         async function printStatement() {
             try { await document.fonts.ready; } catch (e) {}
             document.body.classList.add('printing-statement');
@@ -2476,7 +2464,6 @@
             window.print();
         }
 
-        // ---------- PDF ----------
         async function makeStatementPdf() {
             const d = buildStatementData(currentStatementId);
             if (!d) throw new Error('العطية غير موجودة');
@@ -2490,7 +2477,7 @@
                 margin: [10, 10, 10, 10],
                 filename: fileName,
                 image: { type: 'jpeg', quality: 0.98 },
-                html2canvas: { scale: 2, useCORS: true },
+                html2canvas: { scale: 2, useCORS: true, letterRendering: true },
                 jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
                 pagebreak: { mode: ['css'], before: '.stmt-page-next' }
             };
@@ -2542,7 +2529,6 @@
             });
         }
 
-        // ---------- النص / واتساب ----------
         async function copyText(t) {
             try { await navigator.clipboard.writeText(t); return true; }
             catch (e) {
@@ -2575,7 +2561,7 @@
             window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`, '_blank');
         }
 
-        // ---------- الحذف العام (مع التخيير بين حذف الكشف فقط أو مع العطية) ----------
+        // ================= حذف الكشف =================
         function askDeleteStatement(id) {
             if (!requirePermission("edit")) return;
             pendingDeleteGrantId = id || currentStatementId;
