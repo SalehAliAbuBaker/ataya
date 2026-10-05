@@ -32,6 +32,7 @@
         /* ===== كشف العطية (عرض + طباعة A4 + PDF) ===== */
         .stmt-sheet { font-family: 'Tajawal','Segoe UI',Tahoma,sans-serif; direction: rtl; width: 718px; background: transparent; color: #0f172a; font-size: 13px; line-height: 1.6; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         .stmt-head { text-align: center; border-bottom: 2px solid #1e293b; padding-bottom: 8px; margin-bottom: 12px; }
+        .stmt-head .basmala { font-size: 15px; font-weight: 700; color: #0f172a; margin-bottom: 4px; letter-spacing: 0.3px; }
         .stmt-head .org { font-size: 12px; color: #475569; }
         .stmt-head h1 { font-size: 22px; font-weight: 700; margin: 2px 0 0; }
         .stmt-meta { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
@@ -466,6 +467,7 @@
 
                 <div id="pdfReportArea" class="overflow-x-auto p-3 bg-white rounded-lg border border-slate-100">
                     <div class="text-center pb-3 border-b mb-3 border-slate-200">
+                        <p class="text-xs font-bold text-slate-800 mb-1">بسم الله الرحمن الرحيم</p>
                         <h3 class="text-base font-bold text-slate-800">كشف صرف العطايا والمساعدات</h3>
                         <p class="text-[11px] text-slate-500 mt-0.5">تاريخ التقرير: <span id="reportPrintDate"></span></p>
                         <p id="activeFilterDesc" class="text-[10px] text-indigo-700 font-semibold mt-1"></p>
@@ -512,8 +514,9 @@
                 <button type="button" onclick="shareStatementPDF()" class="bg-emerald-600 text-white py-2 rounded-lg">📤 مشاركة PDF</button>
                 <button type="button" onclick="copyStatementText()" class="bg-indigo-600 text-white py-2 rounded-lg">📋 نسخ نص</button>
                 <button type="button" onclick="whatsappStatement()" class="bg-teal-600 text-white py-2 rounded-lg">💬 واتساب</button>
+                <button type="button" data-permission="add" onclick="openAddLogFromStatement()" class="bg-indigo-50 border border-indigo-300 text-indigo-700 py-2 rounded-lg">➕ إضافة مستفيد</button>
                 <button type="button" data-permission="edit" onclick="askDeleteStatement()" class="bg-white border border-rose-300 text-rose-600 py-2 rounded-lg">🗑 حذف الكشف</button>
-                <button type="button" onclick="closeStatement()" class="col-span-2 bg-slate-100 border border-slate-300 text-slate-700 py-2 rounded-lg">✕ إغلاق</button>
+                <button type="button" onclick="closeStatement()" class="bg-slate-100 border border-slate-300 text-slate-700 py-2 rounded-lg">✕ إغلاق</button>
             </div>
             <p id="stmtBusy" class="hidden text-center text-[11px] text-indigo-700 mt-1">جارٍ تجهيز الملف...</p>
         </div>
@@ -557,12 +560,12 @@
         </div>
     </div>
 
-    <!-- نافذة إضافة مستفيد للكشف مباشرة من قسم التقارير -->
+    <!-- نافذة إضافة مستفيد للكشف مباشرة من قسم التقارير أو الكشف -->
     <div id="addLogFromReportModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4" style="z-index:75">
         <div class="bg-white rounded-2xl max-w-md w-full p-5 shadow-2xl border border-slate-100">
             <div class="flex justify-between items-center mb-3 border-b border-slate-100 pb-2">
                 <h3 class="font-bold text-indigo-800 text-sm flex items-center gap-1.5">
-                    <span>➕</span> إضافة مستفيد للكشف (من التقارير)
+                    <span>➕</span> إضافة مستفيد للكشف
                 </h3>
                 <button type="button" onclick="closeAddLogFromReportModal()" class="text-slate-400 hover:text-rose-600 text-xl font-bold">&times;</button>
             </div>
@@ -636,8 +639,14 @@
         window.fbPermissionRecords = {};
 
         const key = id => String(id).replace(/[.#$\[\]\/]/g, '_');
-        const toArr = v => (!v ? [] : (Array.isArray(v) ? v.filter(Boolean) : Object.values(v)))
-                            .sort((a, b) => Number(b.id) - Number(a.id)); // الأحدث أولاً
+        const toArr = v => {
+            if (!v) return [];
+            const entries = Array.isArray(v)
+                ? v.map((item, idx) => [String(idx), item]).filter(([, item]) => Boolean(item))
+                : Object.entries(v).filter(([, item]) => Boolean(item));
+            return entries.map(([fbKey, item]) => ({ ...item, _fbKey: fbKey }))
+                          .sort((a, b) => Number(b.id) - Number(a.id));
+        };
 
         let last = { beneficiaries: {}, grants: {}, distributionLogs: {} }; // آخر حالة معروفة في السحابة
         let ready = false;
@@ -656,7 +665,7 @@
         window.fbSignOut = () => signOut(auth);
         window.fbPermissionUpdate = updates => update(ref(db, ROOT), updates);
 
-        // رفع السجلات المتغيرة فقط، وحذف المحذوفة؛ لا يستبدل بيانات الآخرين
+        // رفع السجلات المتغيرة فقط، وحذف المحذوفة بدقة تامة؛ لا يستبدل بيانات الآخرين
         window.fbPush = async function () {
             if (!ready) return;
             const cur = { beneficiaries, grants, distributionLogs };
@@ -665,17 +674,21 @@
             for (const c of COLS) {
                 next[c] = {};
                 for (const item of cur[c]) {
-                    const k = key(item.id);
-                    const j = JSON.stringify(item);
+                    const k = item._fbKey || key(item.id);
+                    const cleanItem = { ...item };
+                    delete cleanItem._fbKey;
+                    const j = JSON.stringify(cleanItem);
                     next[c][k] = j;
-                    if (last[c][k] !== j) upd[`${c}/${k}`] = JSON.parse(j);
+                    if (last[c][k] !== j) upd[`${c}/${k}`] = cleanItem;
                 }
-                for (const k of Object.keys(last[c])) if (!(k in next[c])) upd[`${c}/${k}`] = null;
+                for (const k of Object.keys(last[c])) {
+                    if (!(k in next[c])) upd[`${c}/${k}`] = null;
+                }
             }
             if (!Object.keys(upd).length) return;
             upd.lastUpdated = new Date().toISOString();
             await update(ref(db, ROOT), upd);
-            last = next; // لا نحدّث الحالة إلا بعد نجاح الرفع
+            last = next;
             window.fbSetBadge('ok');
         };
 
@@ -685,8 +698,13 @@
             distributionLogs = toArr(d.distributionLogs);
             for (const c of COLS) {
                 last[c] = {};
-                for (const item of (c === 'beneficiaries' ? beneficiaries : c === 'grants' ? grants : distributionLogs))
-                    last[c][key(item.id)] = JSON.stringify(item);
+                const arr = c === 'beneficiaries' ? beneficiaries : c === 'grants' ? grants : distributionLogs;
+                for (const item of arr) {
+                    const k = item._fbKey || key(item.id);
+                    const cleanItem = { ...item };
+                    delete cleanItem._fbKey;
+                    last[c][k] = JSON.stringify(cleanItem);
+                }
             }
             localStorage.setItem('alata_beneficiaries', JSON.stringify(beneficiaries));
             localStorage.setItem('alata_grants', JSON.stringify(grants));
@@ -753,6 +771,12 @@
 
 
     <script>
+        // مولد معرفات صحيحة بدون فواصل عشرية لضمان تطابق مفاتيح Firebase
+        let _uidSeq = 0;
+        function uidGen() {
+            return (Date.now() * 1000) + ((++_uidSeq) % 1000);
+        }
+
         // إظهار اسم المسؤول النشط
         let loggedUser = 'مسؤول'; // يُحدَّث من حساب Firebase بعد الدخول
         const displayElem = document.getElementById('displayUserName');
@@ -863,13 +887,13 @@
                     pushExitGuardState();
                     return;
                 }
-                if (stmtViewer && !stmtViewer.classList.contains('hidden')) {
-                    closeStatement();
+                if (addRepModal && !addRepModal.classList.contains('hidden')) {
+                    closeAddLogFromReportModal();
                     pushExitGuardState();
                     return;
                 }
-                if (addRepModal && !addRepModal.classList.contains('hidden')) {
-                    closeAddLogFromReportModal();
+                if (stmtViewer && !stmtViewer.classList.contains('hidden')) {
+                    closeStatement();
                     pushExitGuardState();
                     return;
                 }
@@ -1004,7 +1028,7 @@
 
         function getFullBackupData() {
             return {
-                version: '1.6',
+                version: '1.7',
                 exportDate: new Date().toISOString(),
                 beneficiaries,
                 grants,
@@ -1171,7 +1195,7 @@
                         const catVal = row[catIdx] ? row[catIdx].toString().trim() : 'عام';
 
                         beneficiaries.unshift({
-                            id: Date.now() + Math.random(),
+                            id: uidGen(),
                             name: rawName,
                             area: areaVal,
                             phone: phoneVal,
@@ -1202,7 +1226,7 @@
             const normNew = normalizeArabic(rawName);
             const needVal = document.getElementById('benNeedPercent').value;
 
-            const duplicate = beneficiaries.find(b => normalizeArabic(b.name) === normNew && b.id != editId);
+            const duplicate = beneficiaries.find(b => normalizeArabic(b.name) === normNew && String(b.id) !== String(editId));
             if (duplicate) {
                 return alert(`تنبيه: هذا الاسم مسجل مسبقاً في النظام باسم: (${duplicate.name})، يرجى التحقق.`);
             }
@@ -1217,13 +1241,13 @@
             };
 
             if (editId) {
-                const index = beneficiaries.findIndex(b => b.id == editId);
+                const index = beneficiaries.findIndex(b => String(b.id) === String(editId));
                 if (index !== -1) {
                     beneficiaries[index] = { ...beneficiaries[index], ...benData };
                     alert('تم تحديث بيانات المستفيد بنجاح.');
                 }
             } else {
-                beneficiaries.unshift({ id: Date.now(), ...benData });
+                beneficiaries.unshift({ id: uidGen(), ...benData });
                 alert('تم تسجيل المستفيد بنجاح.');
             }
 
@@ -1235,7 +1259,7 @@
 
         function editBeneficiary(id) {
             if (!requirePermission("edit")) return;
-            const ben = beneficiaries.find(b => b.id == id);
+            const ben = beneficiaries.find(b => String(b.id) === String(id));
             if (!ben) return;
 
             document.getElementById('editBenId').value = ben.id;
@@ -1265,8 +1289,9 @@
 
         function deleteBeneficiary(id) {
             if (!requirePermission("edit")) return;
-            if (!confirm('هل أنت متأكد من حذف هذا المستفيد؟')) return;
-            beneficiaries = beneficiaries.filter(b => b.id != id);
+            if (!confirm('هل أنت متأكد من حذف هذا المستفيد؟ سيتم أيضاً إزالته من كشوفات العطايا المرتبطة.')) return;
+            beneficiaries = beneficiaries.filter(b => String(b.id) !== String(id));
+            distributionLogs = distributionLogs.filter(l => String(l.beneficiaryId) !== String(id));
             selectedBenIds.delete(String(id));
             syncToFirebase();
             renderBeneficiaries();
@@ -1304,8 +1329,8 @@
                     </div>
                     <div class="flex items-center gap-2">
                         <span class="bg-slate-200 text-slate-700 px-2 py-0.5 rounded text-[10px]">${b.category}</span>
-                        ${can('edit') ? `<button type="button" onclick="editBeneficiary(${b.id})" class="text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-2 py-1 rounded text-[11px] font-semibold">تعديل</button>
-                        <button type="button" onclick="deleteBeneficiary(${b.id})" class="text-rose-600 bg-rose-50 hover:bg-rose-100 px-2 py-1 rounded text-[11px] font-semibold">حذف</button>` : ''}
+                        ${can('edit') ? `<button type="button" onclick="editBeneficiary('${b.id}')" class="text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-2 py-1 rounded text-[11px] font-semibold">تعديل</button>
+                        <button type="button" onclick="deleteBeneficiary('${b.id}')" class="text-rose-600 bg-rose-50 hover:bg-rose-100 px-2 py-1 rounded text-[11px] font-semibold">حذف</button>` : ''}
                     </div>
                 </div>
             `).join('');
@@ -1353,7 +1378,7 @@
             if (!name || !date) return alert('يرجى تحديد مسمى العطية واختيار التاريخ.');
 
             if (editId) {
-                const index = grants.findIndex(g => g.id == editId);
+                const index = grants.findIndex(g => String(g.id) === String(editId));
                 if (index !== -1) {
                     grants[index] = {
                         ...grants[index],
@@ -1366,7 +1391,7 @@
                 }
             } else {
                 grants.unshift({
-                    id: Date.now(),
+                    id: uidGen(),
                     name, donor, date, defaultQuota,
                     unitAmount, currency,
                     details,
@@ -1382,7 +1407,7 @@
 
         function editGrant(id) {
             if (!requirePermission("edit")) return;
-            const g = grants.find(item => item.id == id);
+            const g = grants.find(item => String(item.id) === String(id));
             if (!g) return;
 
             document.getElementById('editGrantId').value = g.id;
@@ -1422,7 +1447,7 @@
         function deleteGrant(id) {
             if (!requirePermission("edit")) return;
             if (!confirm('حذف هذه العطية لا يحذف سجلات الصرف السابقة. هل ترغب بالاستمرار؟')) return;
-            grants = grants.filter(g => g.id != id);
+            grants = grants.filter(g => String(g.id) !== String(id));
             syncToFirebase();
             renderGrants();
         }
@@ -1446,8 +1471,8 @@
                     </div>
                     <div class="flex items-center gap-2">
                         <span class="bg-indigo-50 text-indigo-700 px-2 py-1 rounded font-semibold">الاستحقاق: ${g.defaultQuota}</span>
-                        ${can('edit') ? `<button type="button" onclick="editGrant(${g.id})" class="text-indigo-600 hover:underline">تعديل</button>
-                        <button type="button" onclick="deleteGrant(${g.id})" class="text-rose-600 hover:underline">حذف</button>` : ''}
+                        ${can('edit') ? `<button type="button" onclick="editGrant('${g.id}')" class="text-indigo-600 hover:underline">تعديل</button>
+                        <button type="button" onclick="deleteGrant('${g.id}')" class="text-rose-600 hover:underline">حذف</button>` : ''}
                     </div>
                 </div>
             `}).join('');
@@ -1463,7 +1488,7 @@
             }
             const prevVal = grantSelect.value;
             grantSelect.innerHTML = grants.map(g => `<option value="${g.id}">${g.name} (${g.date})</option>`).join('');
-            if (prevVal && grants.some(g => g.id == prevVal)) {
+            if (prevVal && grants.some(g => String(g.id) === String(prevVal))) {
                 grantSelect.value = prevVal;
             } else {
                 selectedBenIds.clear();
@@ -1519,12 +1544,12 @@
                 return;
             }
 
-            const activeGrant = grants.find(g => g.id == grantId);
+            const activeGrant = grants.find(g => String(g.id) === String(grantId));
             if (!activeGrant) return;
 
             // استبعاد أي مستفيد من التحديد إذا كان قد استلم هذه العطية بالفعل
             for (const idStr of [...selectedBenIds]) {
-                if (distributionLogs.some(l => String(l.beneficiaryId) === idStr && l.grantId == grantId)) {
+                if (distributionLogs.some(l => String(l.beneficiaryId) === idStr && String(l.grantId) === String(grantId))) {
                     selectedBenIds.delete(idStr);
                 }
             }
@@ -1548,7 +1573,7 @@
             }
 
             list.innerHTML = filtered.map(b => {
-                const previousLogs = distributionLogs.filter(log => log.beneficiaryId === b.id && log.grantId == grantId);
+                const previousLogs = distributionLogs.filter(log => String(log.beneficiaryId) === String(b.id) && String(log.grantId) === String(grantId));
                 const totalTaken = previousLogs.reduce((sum, item) => sum + Number(item.amount), 0);
                 const isSelected = totalTaken === 0 && selectedBenIds.has(String(b.id));
                 const quotaVal = customQuotas[String(b.id)] !== undefined ? customQuotas[String(b.id)] : activeGrant.defaultQuota;
@@ -1590,13 +1615,13 @@
             const grantId = document.getElementById('distGrantSelect').value;
             if (!grantId) return alert('يرجى تحديد العطية أولاً.');
 
-            const activeGrant = grants.find(g => g.id == grantId);
+            const activeGrant = grants.find(g => String(g.id) === String(grantId));
             const quotaInput = document.getElementById(`quota-${benId}`);
             const amount = (quotaInput ? quotaInput.value : customQuotas[String(benId)]) || activeGrant.defaultQuota || 1;
-            const ben = beneficiaries.find(b => b.id == benId);
+            const ben = beneficiaries.find(b => String(b.id) === String(benId));
             if (!ben) return;
 
-            if (distributionLogs.some(l => l.beneficiaryId == ben.id && l.grantId == activeGrant.id)) {
+            if (distributionLogs.some(l => String(l.beneficiaryId) === String(ben.id) && String(l.grantId) === String(activeGrant.id))) {
                 return alert(`(${ben.name}) استلم هذه العطية مسبقاً.`);
             }
 
@@ -1605,7 +1630,7 @@
             const dateStr = now.toLocaleDateString('ar-YE') + ' ' + now.toLocaleTimeString('ar-YE', {hour: '2-digit', minute:'2-digit'});
 
             distributionLogs.unshift({
-                id: Date.now() + Math.random(),
+                id: uidGen(),
                 grantId: activeGrant.id,
                 grantName: activeGrant.name,
                 grantDonor: activeGrant.donor || 'فاعل خير',
@@ -1663,7 +1688,7 @@
             if (!grantId) return alert('يرجى تحديد العطية أولاً.');
             if (selectedBenIds.size === 0) return alert('يرجى تأشير مستفيد واحد على الأقل.');
 
-            const activeGrant = grants.find(g => g.id == grantId);
+            const activeGrant = grants.find(g => String(g.id) === String(grantId));
             const todayISO = todayLocal();
             const now = new Date();
             const dateStr = now.toLocaleDateString('ar-YE') + ' ' + now.toLocaleTimeString('ar-YE', {hour: '2-digit', minute:'2-digit'});
@@ -1675,7 +1700,7 @@
                 const ben = beneficiaries.find(b => String(b.id) === idStr);
                 if (!ben) continue;
 
-                if (distributionLogs.some(l => String(l.beneficiaryId) === idStr && l.grantId == activeGrant.id)) {
+                if (distributionLogs.some(l => String(l.beneficiaryId) === idStr && String(l.grantId) === String(activeGrant.id))) {
                     skipped++;
                     continue;
                 }
@@ -1684,7 +1709,7 @@
                 const amount = (domInput ? domInput.value : customQuotas[idStr]) || activeGrant.defaultQuota || 1;
 
                 distributionLogs.unshift({
-                    id: Date.now() + Math.random(),
+                    id: uidGen(),
                     grantId: activeGrant.id,
                     grantName: activeGrant.name,
                     grantDonor: activeGrant.donor || 'فاعل خير',
@@ -1760,8 +1785,9 @@
             const fTo = document.getElementById('filterToDate').value;
 
             currentFilteredLogs = distributionLogs.filter(log => {
-                const ben = beneficiaries.find(b => b.id === log.beneficiaryId) || {};
-                const grant = grants.find(g => g.id == log.grantId) || {};
+                const ben = beneficiaries.find(b => String(b.id) === String(log.beneficiaryId));
+                if (!ben) return false; // تجاهل أي سجل لمستفيد غير موجود
+                const grant = grants.find(g => String(g.id) === String(log.grantId)) || {};
 
                 const benName = ben.name || '';
                 const donorName = log.grantDonor || grant.donor || '';
@@ -1802,8 +1828,8 @@
             }
 
             tbody.innerHTML = currentFilteredLogs.map(log => {
-                const ben = beneficiaries.find(b => b.id === log.beneficiaryId) || {};
-                const grant = grants.find(g => g.id == log.grantId) || {};
+                const ben = beneficiaries.find(b => String(b.id) === String(log.beneficiaryId)) || {};
+                const grant = grants.find(g => String(g.id) === String(log.grantId)) || {};
                 const donor = log.grantDonor || grant.donor || '-';
                 const creator = log.createdByUser || 'مسؤول';
                 const hasMoney = grant.unitAmount !== null && grant.unitAmount !== undefined && Number(grant.unitAmount) > 0;
@@ -1811,7 +1837,7 @@
 
                 return `
                     <tr class="hover:bg-slate-50">
-                        <td class="p-2 font-bold text-slate-800">${ben.name || 'مستفيد غير معروف'}</td>
+                        <td class="p-2 font-bold text-slate-800">${ben.name || '-'}</td>
                         <td class="p-2 text-slate-600">${ben.area || '-'}</td>
                         <td class="p-2 text-center font-bold text-amber-700">${ben.needPercent !== null && ben.needPercent !== undefined ? ben.needPercent + '%' : '-'}</td>
                         <td class="p-2 text-indigo-700 font-medium">${log.grantName}</td>
@@ -1821,8 +1847,8 @@
                         <td class="p-2 text-center text-slate-600 font-medium text-[11px]"><span class="bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded border border-indigo-100">${creator}</span></td>
                         <td class="p-2 text-slate-400 text-[10px]">${log.timestamp}</td>
                         <td class="p-2 text-center no-print">
-                            ${can('edit') ? `<button type="button" onclick="editLogAmount(${log.id})" class="text-indigo-600 hover:underline mx-1">تعديل</button>
-                            <button type="button" onclick="deleteLog(${log.id})" class="text-rose-600 hover:underline mx-1">إلغاء</button>` : ''}
+                            ${can('edit') ? `<button type="button" onclick="editLogAmount('${log.id}')" class="text-indigo-600 hover:underline mx-1">تعديل</button>
+                            <button type="button" onclick="deleteLog('${log.id}')" class="text-rose-600 hover:underline mx-1">إلغاء</button>` : ''}
                         </td>
                     </tr>
                 `;
@@ -1831,26 +1857,79 @@
 
         function editLogAmount(logId) {
             if (!requirePermission("edit")) return;
-            const log = distributionLogs.find(l => l.id == logId);
+            const log = distributionLogs.find(l => String(l.id) === String(logId));
             if (!log) return;
             const newAmount = prompt('أدخل الكمية الجديدة:', log.amount);
             if (newAmount !== null && newAmount.trim() !== '') {
                 log.amount = Number(newAmount);
                 syncToFirebase();
                 renderFilteredLogs();
+                if (!document.getElementById('statementViewer').classList.contains('hidden')) refreshStatement();
             }
         }
 
         function deleteLog(logId) {
             if (!requirePermission("edit")) return;
-            if (!confirm('هل تريد إلغاء حركة الصرف هذه للمستفيد؟')) return;
-            distributionLogs = distributionLogs.filter(l => l.id != logId);
+            const target = distributionLogs.find(l => String(l.id) === String(logId));
+            if (!target) return;
+            const ben = beneficiaries.find(b => String(b.id) === String(target.beneficiaryId));
+            if (!confirm(`هل تريد إلغاء وحذف (${ben ? ben.name : 'هذا المستفيد'}) من كشف (${target.grantName})؟`)) return;
+
+            // حذف جميع حركات الصرف لهذا المستفيد في نفس العطية لضمان اختفائه نهائياً من كشف العطية والتقارير
+            distributionLogs = distributionLogs.filter(l =>
+                !(String(l.id) === String(logId) ||
+                  (String(l.grantId) === String(target.grantId) && String(l.beneficiaryId) === String(target.beneficiaryId)))
+            );
             syncToFirebase();
             renderFilteredLogs();
+            if (document.getElementById('statementsSection').classList.contains('active-section')) renderStatementsList();
+            if (!document.getElementById('statementViewer').classList.contains('hidden')) refreshStatement();
         }
 
-        // ================= إضافة مستفيد للكشف مباشرة من قسم التقارير =================
-        function openAddLogFromReportModal() {
+        // حذف أو تعديل مستفيد مباشرة من داخل عارض كشف العطية
+        function removeBeneficiaryFromStatement(grantId, benId) {
+            if (!requirePermission("edit")) return;
+            const ben = beneficiaries.find(b => String(b.id) === String(benId));
+            if (!confirm(`هل تريد حذف (${ben ? ben.name : 'هذا المستفيد'}) من هذا الكشف؟`)) return;
+            distributionLogs = distributionLogs.filter(l =>
+                !(String(l.grantId) === String(grantId) && String(l.beneficiaryId) === String(benId))
+            );
+            syncToFirebase();
+            refreshStatement();
+            renderStatementsList();
+            if (document.getElementById('reportsSection').classList.contains('active-section')) renderFilteredLogs();
+        }
+
+        function editBeneficiaryInStatement(grantId, benId) {
+            if (!requirePermission("edit")) return;
+            const matching = distributionLogs.filter(l => String(l.grantId) === String(grantId) && String(l.beneficiaryId) === String(benId));
+            if (!matching.length) return;
+            const currentSum = matching.reduce((s, x) => s + (Number(x.amount) || 0), 0);
+            const newAmount = prompt('أدخل الكمية الجديدة للمستفيد في هذا الكشف:', currentSum);
+            if (newAmount === null || newAmount.trim() === '') return;
+            const num = Number(newAmount);
+            if (isNaN(num) || num <= 0) return alert('يرجى إدخال كمية صحيحة أكبر من صفر.');
+
+            // الاحتفاظ بسجل واحد بالكمية المحدثة وإزالة أي تكرار لنفس المستفيد في نفس العطية
+            const firstLog = matching[0];
+            firstLog.amount = num;
+            const extraIds = new Set(matching.slice(1).map(x => String(x.id)));
+            if (extraIds.size > 0) {
+                distributionLogs = distributionLogs.filter(l => !extraIds.has(String(l.id)));
+            }
+            syncToFirebase();
+            refreshStatement();
+            renderStatementsList();
+            if (document.getElementById('reportsSection').classList.contains('active-section')) renderFilteredLogs();
+        }
+
+        function openAddLogFromStatement() {
+            if (!currentStatementId) return;
+            openAddLogFromReportModal(currentStatementId);
+        }
+
+        // ================= إضافة مستفيد للكشف مباشرة من قسم التقارير أو الكشوفات =================
+        function openAddLogFromReportModal(forcedGrantId) {
             if (!requirePermission("add")) return;
             if (grants.length === 0) return alert('يرجى تسجيل عطية أولاً في قسم العطايا.');
             if (beneficiaries.length === 0) return alert('لا يوجد مستفيدون مسجلون في النظام.');
@@ -1858,11 +1937,14 @@
             const grantSel = document.getElementById('repAddGrantSelect');
             grantSel.innerHTML = grants.map(g => `<option value="${g.id}">${escHtml(g.name)} (${escHtml(g.date)})</option>`).join('');
 
-            // إذا كان هناك فلتر عطية محدد في التقارير، نختاره تلقائياً
-            const currentFilterGrantName = document.getElementById('filterGrant')?.value || '';
-            if (currentFilterGrantName) {
-                const matchedGrant = grants.find(g => g.name === currentFilterGrantName);
-                if (matchedGrant) grantSel.value = matchedGrant.id;
+            if (forcedGrantId) {
+                grantSel.value = forcedGrantId;
+            } else {
+                const currentFilterGrantName = document.getElementById('filterGrant')?.value || '';
+                if (currentFilterGrantName) {
+                    const matchedGrant = grants.find(g => g.name === currentFilterGrantName);
+                    if (matchedGrant) grantSel.value = matchedGrant.id;
+                }
             }
 
             document.getElementById('repAddBenSearch').value = '';
@@ -1876,7 +1958,7 @@
 
         function onRepAddGrantChange() {
             const grantId = document.getElementById('repAddGrantSelect').value;
-            const activeGrant = grants.find(g => g.id == grantId);
+            const activeGrant = grants.find(g => String(g.id) === String(grantId));
             if (activeGrant) {
                 document.getElementById('repAddQuotaInput').value = activeGrant.defaultQuota || 1;
             }
@@ -1890,7 +1972,7 @@
             const hint = document.getElementById('repAddBenHint');
 
             const takenSet = new Set(
-                distributionLogs.filter(l => l.grantId == grantId).map(l => String(l.beneficiaryId))
+                distributionLogs.filter(l => String(l.grantId) === String(grantId)).map(l => String(l.beneficiaryId))
             );
 
             let available = beneficiaries.filter(b => !takenSet.has(String(b.id)));
@@ -1925,11 +2007,11 @@
             if (!grantId) return alert('يرجى اختيار العطية.');
             if (!benId) return alert('يرجى اختيار المستفيد من القائمة.');
 
-            const activeGrant = grants.find(g => g.id == grantId);
+            const activeGrant = grants.find(g => String(g.id) === String(grantId));
             const ben = beneficiaries.find(b => String(b.id) === String(benId));
             if (!activeGrant || !ben) return;
 
-            if (distributionLogs.some(l => String(l.beneficiaryId) === String(ben.id) && l.grantId == activeGrant.id)) {
+            if (distributionLogs.some(l => String(l.beneficiaryId) === String(ben.id) && String(l.grantId) === String(activeGrant.id))) {
                 return alert(`المستفيد (${ben.name}) مسجل مسبقاً في كشف هذه العطية.`);
             }
 
@@ -1938,7 +2020,7 @@
             const dateStr = now.toLocaleDateString('ar-YE') + ' ' + now.toLocaleTimeString('ar-YE', {hour: '2-digit', minute:'2-digit'});
 
             distributionLogs.unshift({
-                id: Date.now() + Math.random(),
+                id: uidGen(),
                 grantId: activeGrant.id,
                 grantName: activeGrant.name,
                 grantDonor: activeGrant.donor || 'فاعل خير',
@@ -1952,6 +2034,8 @@
             syncToFirebase();
             populateFilterDropdowns();
             renderFilteredLogs();
+            if (document.getElementById('statementsSection').classList.contains('active-section')) renderStatementsList();
+            if (!document.getElementById('statementViewer').classList.contains('hidden')) refreshStatement();
             closeAddLogFromReportModal();
             alert(`تمت إضافة (${ben.name}) إلى كشف (${activeGrant.name}) بنجاح.`);
         }
@@ -2007,7 +2091,7 @@
             const filterDesc = document.getElementById('activeFilterDesc').innerText;
             const totalAmount = currentFilteredLogs.reduce((sum, item) => sum + Number(item.amount), 0);
 
-            let msg = `📋 *كشف صرف العطايا والمساعدات*\n`;
+            let msg = `بسم الله الرحمن الرحيم\n📋 *كشف صرف العطايا والمساعدات*\n`;
             msg += `📅 التاريخ: ${new Date().toLocaleDateString('ar-YE')}\n`;
             if (filterDesc && filterDesc !== 'عرض شامل بدون تصفية') {
                 msg += `🏷 ${filterDesc}\n`;
@@ -2015,8 +2099,8 @@
             msg += `--------------------------------\n`;
 
             currentFilteredLogs.forEach((log, idx) => {
-                const ben = beneficiaries.find(b => b.id === log.beneficiaryId) || {};
-                const grant = grants.find(g => g.id == log.grantId) || {};
+                const ben = beneficiaries.find(b => String(b.id) === String(log.beneficiaryId)) || {};
+                const grant = grants.find(g => String(g.id) === String(log.grantId)) || {};
                 const hasMoney = grant.unitAmount !== null && grant.unitAmount !== undefined && Number(grant.unitAmount) > 0;
                 const moneyPart = hasMoney ? ` | المبلغ: ${fmtNum(Number(log.amount) * Number(grant.unitAmount))}${grant.currency ? ' ' + grant.currency : ''}` : '';
                 msg += `${idx + 1}. *${ben.name || 'مستفيد'}*\n   المنطقة: ${ben.area || '-'} | العطية: ${log.grantName} | الكمية: ${log.amount}${moneyPart} | المنفّذ: ${log.createdByUser || '-'}\n`;
@@ -2025,7 +2109,7 @@
             msg += `--------------------------------\n`;
             msg += `👥 إجمالي المستفيدين: ${currentFilteredLogs.length}\n`;
             msg += `📦 إجمالي العطايا: ${totalAmount}\n\n`;
-            msg += `✍️ 1. إعداد المختص: ..............\n✍️ 2. اعتمد من: ..............`;
+            msg += `✍️ 1. إعداد المختص: ..............\n✍️️ 2. اعتمد من: ..............`;
 
             const url = `whatsapp://send?text=${encodeURIComponent(msg)}`;
             window.location.href = url;
@@ -2088,12 +2172,14 @@
         }
 
         function buildStatementData(grantId) {
-            const grant = grants.find(g => g.id == grantId);
+            const grant = grants.find(g => String(g.id) === String(grantId));
             if (!grant) return null;
             const byBen = new Map();
-            distributionLogs.filter(l => l.grantId == grantId).forEach(l => {
-                const k = String(l.beneficiaryId);
-                if (!byBen.has(k)) byBen.set(k, { ben: beneficiaries.find(b => b.id == l.beneficiaryId) || { name: '(مستفيد محذوف)' }, amount: 0 });
+            distributionLogs.filter(l => String(l.grantId) === String(grantId)).forEach(l => {
+                const benObj = beneficiaries.find(b => String(b.id) === String(l.beneficiaryId));
+                if (!benObj) return; // استبعاد أي مستفيد تم حذفه حتى لا يظهر في الكشف
+                const k = String(benObj.id);
+                if (!byBen.has(k)) byBen.set(k, { ben: benObj, amount: 0 });
                 byBen.get(k).amount += Number(l.amount) || 0;
             });
             const rows = [...byBen.values()].sort((a, b) => String(a.ben.name).localeCompare(String(b.ben.name), 'ar'));
@@ -2122,26 +2208,35 @@
             </div>`;
         }
 
-        // ---------- بناء صفحات الكشف (ترويسة متكررة + ترقيم صفحات مستقل) ----------
-        function getStmtThead(d) {
+        // ---------- بناء صفحات الكشف (ترويسة متكررة + ترقيم صفحات مستقل + البسملة في الصفحة الأولى) ----------
+        function getStmtThead(d, forExport = false) {
+            const actCol = (!forExport && can('edit')) ? `<th class="no-print" style="width:10%">إجراء</th>` : '';
             if (d.hasMoney) {
                 return `<thead><tr>
                     <th style="width:5%">م</th>
-                    <th style="width:28%">اسم المستفيد</th>
-                    <th style="width:18%">المنطقة</th>
-                    <th style="width:10%">عدد الأفراد</th>
-                    <th style="width:14%">الفئة</th>
-                    <th style="width:9%">الكمية</th>
-                    <th style="width:16%">المبلغ${d.currency ? ' (' + escHtml(d.currency) + ')' : ''}</th>
+                    <th style="width:26%">اسم المستفيد</th>
+                    <th style="width:16%">المنطقة</th>
+                    <th style="width:9%">عدد الأفراد</th>
+                    <th style="width:13%">الفئة</th>
+                    <th style="width:8%">الكمية</th>
+                    <th style="width:13%">المبلغ${d.currency ? ' (' + escHtml(d.currency) + ')' : ''}</th>
+                    ${actCol}
                 </tr></thead>`;
             }
             return `<thead><tr>
-                <th style="width:6%">م</th><th style="width:32%">اسم المستفيد</th><th style="width:20%">المنطقة</th>
-                <th style="width:12%">عدد الأفراد</th><th style="width:16%">الفئة</th><th style="width:14%">الكمية</th>
+                <th style="width:6%">م</th><th style="width:30%">اسم المستفيد</th><th style="width:18%">المنطقة</th>
+                <th style="width:11%">عدد الأفراد</th><th style="width:15%">الفئة</th><th style="width:10%">الكمية</th>
+                ${actCol}
             </tr></thead>`;
         }
 
-        function statementRowHTML(r, i, d) {
+        function statementRowHTML(r, i, d, forExport = false) {
+            const actCell = (!forExport && can('edit'))
+                ? `<td class="c no-print" style="white-space:nowrap">
+                    <button type="button" onclick="editBeneficiaryInStatement('${d.grant.id}','${r.ben.id}')" class="text-indigo-600 hover:underline text-[11px] mx-0.5">تعديل</button>
+                    <button type="button" onclick="removeBeneficiaryFromStatement('${d.grant.id}','${r.ben.id}')" class="text-rose-600 hover:underline text-[11px] mx-0.5">حذف</button>
+                   </td>`
+                : '';
             if (d.hasMoney) {
                 const rowMoney = r.amount * d.unitAmount;
                 return `<tr>
@@ -2152,6 +2247,7 @@
                     <td>${escHtml(r.ben.category || '-')}</td>
                     <td class="c"><b>${fmtNum(r.amount)}</b></td>
                     <td class="c"><b>${fmtNum(rowMoney)}</b></td>
+                    ${actCell}
                 </tr>`;
             }
             return `<tr>
@@ -2161,6 +2257,7 @@
                 <td class="c">${escHtml(r.ben.familyCount ?? '-')}</td>
                 <td>${escHtml(r.ben.category || '-')}</td>
                 <td class="c"><b>${fmtNum(r.amount)}</b></td>
+                ${actCell}
             </tr>`;
         }
 
@@ -2171,6 +2268,7 @@
                 : '';
             return `<div class="stmt-top">
                 <div class="stmt-head">
+                    <div class="basmala">بسم الله الرحمن الرحيم</div>
                     <div class="org">سجل العطايا والمستفيدين</div>
                     <h1>كشف صرف عطية</h1>
                 </div>
@@ -2192,34 +2290,38 @@
             </div>`;
         }
 
-        function statementTfootHTML(d) {
+        function statementTfootHTML(d, forExport = false) {
+            const extraTd = (!forExport && can('edit')) ? `<td class="no-print"></td>` : '';
             if (d.hasMoney) {
                 return `<tr>
                     <td colspan="2">إجمالي عدد المستفيدين: ${d.count}</td>
                     <td colspan="3" style="text-align:left">الإجمالي العام</td>
                     <td class="c">${fmtNum(d.total)}</td>
                     <td class="c">${fmtNum(d.totalMoney)} ${escHtml(d.currency)}</td>
+                    ${extraTd}
                 </tr>`;
             }
             return `<tr>
                 <td colspan="2">إجمالي عدد المستفيدين: ${d.count}</td>
                 <td colspan="3" style="text-align:left">إجمالي الكميات</td>
                 <td class="c">${fmtNum(d.total)}</td>
+                ${extraTd}
             </tr>`;
         }
 
         // يقيس ارتفاع الصفوف الفعلي ويوزعها على صفحات A4 مستقلة تماماً
-        async function buildStatementPagesHTML(d) {
+        async function buildStatementPagesHTML(d, forExport = false) {
             try { await document.fonts.load('400 13px Tajawal'); await document.fonts.load('700 13px Tajawal'); } catch (e) {}
 
             const MAX_CONTENT_H = 975;
             const GAP = 14, SIGN_GAP = 26;
-            const theadHtml = getStmtThead(d);
-            const colSpanCount = d.hasMoney ? 7 : 6;
+            const theadHtml = getStmtThead(d, forExport);
+            const hasActCol = !forExport && can('edit');
+            const colSpanCount = (d.hasMoney ? 7 : 6) + (hasActCol ? 1 : 0);
             const rowsHtml = d.rows.length
-                ? d.rows.map((r, i) => statementRowHTML(r, i, d))
+                ? d.rows.map((r, i) => statementRowHTML(r, i, d, forExport))
                 : [`<tr><td colspan="${colSpanCount}" class="c" style="padding:18px;color:#64748b">لم تُصرف هذه العطية لأي مستفيد بعد.</td></tr>`];
-            const tfoot = statementTfootHTML(d);
+            const tfoot = statementTfootHTML(d, forExport);
 
             // 1) القياس الدقيق بعرض الصفحة الفعلي (686px داخل الحواشي)
             const m = document.createElement('div');
@@ -2231,7 +2333,7 @@
             document.body.appendChild(m);
 
             const h = el => (el ? Math.ceil(el.getBoundingClientRect().height) : 0);
-            const topH = h(m.querySelector('.stmt-top')) || 220;
+            const topH = h(m.querySelector('.stmt-top')) || 235;
             const cmpH = h(m.querySelector('.stmt-compact')) || 38;
             const table = m.querySelector('.stmt-table');
             const theadH = h(table.tHead) || 34;
@@ -2281,7 +2383,7 @@
 
         function buildStatementText(d) {
             const g = d.grant;
-            let t = `📋 *كشف صرف عطية: ${g.name}*\n`;
+            let t = `بسم الله الرحمن الرحيم\n📋 *كشف صرف عطية: ${g.name}*\n`;
             t += `🔖 رقم المستند: ${g.docNo || '-'}\n📅 التاريخ: ${g.date}\n🏷️ المانح: ${g.donor || '-'}\n`;
             if (d.hasMoney) {
                 t += `💵 مبلغ العطية: ${fmtNum(d.unitAmount)} ${d.currency}\n`;
@@ -2351,7 +2453,7 @@
             const d = buildStatementData(currentStatementId);
             if (!d) return closeStatement();
             const tok = ++stmtRenderToken;
-            const html = await buildStatementPagesHTML(d);
+            const html = await buildStatementPagesHTML(d, false);
             if (tok !== stmtRenderToken || currentStatementId === null) return;
             const host = document.getElementById('statementSheet');
             host.innerHTML = html;
@@ -2380,7 +2482,7 @@
             if (!d) throw new Error('العطية غير موجودة');
             const stage = document.createElement('div');
             stage.style.cssText = 'position:fixed;left:-10000px;top:0;width:718px;background:#fff;';
-            stage.innerHTML = await buildStatementPagesHTML(d);
+            stage.innerHTML = await buildStatementPagesHTML(d, true);
             document.body.appendChild(stage);
 
             const fileName = `كشف_${d.grant.docNo || 'عطية'}_${d.grant.name}.pdf`.replace(/[\\/:*?"<>|\s]+/g, '_');
@@ -2479,7 +2581,7 @@
             pendingDeleteGrantId = id || currentStatementId;
             const d = buildStatementData(pendingDeleteGrantId);
             if (!d) return;
-            const records = distributionLogs.filter(l => l.grantId == pendingDeleteGrantId).length;
+            const records = distributionLogs.filter(l => String(l.grantId) === String(pendingDeleteGrantId)).length;
             document.getElementById('delStmtInfo').innerHTML =
                 `<b>${escHtml(d.grant.name)}</b> (<bdi>${escHtml(d.grant.docNo || '-')}</bdi>)<br>
                  يحتوي الكشف على: <b>${records}</b> حركة صرف لـ <b>${d.count}</b> مستفيد (إجمالي ${fmtNum(d.total)}).`;
@@ -2501,9 +2603,9 @@
             if (!id) return;
             const mode = document.querySelector('input[name="delStmtMode"]:checked')?.value || 'logs_only';
 
-            distributionLogs = distributionLogs.filter(l => l.grantId != id);
+            distributionLogs = distributionLogs.filter(l => String(l.grantId) !== String(id));
             if (mode === 'with_grant') {
-                grants = grants.filter(g => g.id != id);
+                grants = grants.filter(g => String(g.id) !== String(id));
             }
 
             closeDeleteStatement();
@@ -2524,8 +2626,8 @@
             if (currentFilteredLogs.length === 0) return alert('لا توجد بيانات لتصديرها.');
 
             const reportData = currentFilteredLogs.map(log => {
-                const ben = beneficiaries.find(b => b.id === log.beneficiaryId) || {};
-                const grant = grants.find(g => g.id == log.grantId) || {};
+                const ben = beneficiaries.find(b => String(b.id) === String(log.beneficiaryId)) || {};
+                const grant = grants.find(g => String(g.id) === String(log.grantId)) || {};
                 const hasMoney = grant.unitAmount !== null && grant.unitAmount !== undefined && Number(grant.unitAmount) > 0;
                 return {
                     'اسم المستفيد': ben.name || '-',
