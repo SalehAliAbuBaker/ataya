@@ -446,6 +446,9 @@
                     <h2 class="text-base font-bold text-slate-700">نتائج الكشف</h2>
                     
                     <div class="flex flex-wrap gap-1.5 no-print">
+                        <button type="button" data-permission="add" onclick="openAddLogFromReportModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 shadow-sm">
+                            ➕ إضافة مستفيد للكشف
+                        </button>
                         <button type="button" onclick="sharePDFToWhatsAppSmart()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 shadow-sm">
                             مشاركة PDF للواتساب
                         </button>
@@ -509,7 +512,7 @@
                 <button type="button" onclick="shareStatementPDF()" class="bg-emerald-600 text-white py-2 rounded-lg">📤 مشاركة PDF</button>
                 <button type="button" onclick="copyStatementText()" class="bg-indigo-600 text-white py-2 rounded-lg">📋 نسخ نص</button>
                 <button type="button" onclick="whatsappStatement()" class="bg-teal-600 text-white py-2 rounded-lg">💬 واتساب</button>
-                <button type="button" data-permission="edit" onclick="askDeleteStatement()" class="bg-white border border-rose-300 text-rose-600 py-2 rounded-lg">🗑️️ حذف الكشف</button>
+                <button type="button" data-permission="edit" onclick="askDeleteStatement()" class="bg-white border border-rose-300 text-rose-600 py-2 rounded-lg">🗑 حذف الكشف</button>
                 <button type="button" onclick="closeStatement()" class="col-span-2 bg-slate-100 border border-slate-300 text-slate-700 py-2 rounded-lg">✕ إغلاق</button>
             </div>
             <p id="stmtBusy" class="hidden text-center text-[11px] text-indigo-700 mt-1">جارٍ تجهيز الملف...</p>
@@ -519,11 +522,29 @@
         </div>
     </div>
 
-    <!-- نافذة تأكيد حذف الكشف -->
+    <!-- نافذة تأكيد حذف الكشف (مع التخيير بين حذف الكشف فقط أو مع العطية) -->
     <div id="deleteStatementModal" class="hidden fixed inset-0 bg-slate-900/60 flex items-center justify-center p-4" style="z-index:70">
         <div class="bg-white rounded-2xl max-w-sm w-full p-5 shadow-2xl border border-rose-200">
-            <h3 class="text-base font-bold text-rose-700 mb-2">⚠️ حذف نهائي للعطية</h3>
+            <h3 class="text-base font-bold text-rose-700 mb-2">⚠️ خيارات حذف الكشف</h3>
             <p id="delStmtInfo" class="text-xs text-slate-700 leading-6 bg-rose-50 border border-rose-200 rounded-lg p-2.5 mb-3"></p>
+            
+            <div class="space-y-2 mb-3 text-xs">
+                <label class="flex items-start gap-2 p-2.5 rounded-lg border border-slate-200 bg-slate-50 cursor-pointer hover:border-indigo-300">
+                    <input type="radio" name="delStmtMode" value="logs_only" checked class="mt-0.5 w-4 h-4 text-indigo-600">
+                    <div>
+                        <span class="font-bold text-slate-800 block">حذف الكشف فقط (حركات الصرف)</span>
+                        <span class="text-[11px] text-slate-500">تبقى العطية مسجلة في قائمة العطايا ويمكن الصرف عليها مجدداً.</span>
+                    </div>
+                </label>
+                <label class="flex items-start gap-2 p-2.5 rounded-lg border border-rose-200 bg-rose-50/40 cursor-pointer hover:border-rose-400">
+                    <input type="radio" name="delStmtMode" value="with_grant" class="mt-0.5 w-4 h-4 text-rose-600">
+                    <div>
+                        <span class="font-bold text-rose-800 block">حذف الكشف مع العطية نهائياً</span>
+                        <span class="text-[11px] text-rose-600">يتم مسح العطية وجميع سجلات صرفها بالكامل من النظام.</span>
+                    </div>
+                </label>
+            </div>
+
             <p class="text-[11px] text-slate-500 mb-3">لا يمكن التراجع عن هذا الإجراء. يُنصح بأخذ نسخة احتياطية أو تصدير PDF قبل الحذف.</p>
             <label class="flex items-center gap-2 text-xs mb-4 cursor-pointer">
                 <input type="checkbox" id="delStmtAck" onchange="document.getElementById('delStmtBtn').disabled = !this.checked" class="w-4 h-4">
@@ -531,7 +552,57 @@
             </label>
             <div class="flex gap-2">
                 <button type="button" onclick="closeDeleteStatement()" class="flex-1 bg-slate-100 border border-slate-300 text-slate-700 py-2 rounded-lg text-sm font-semibold">إلغاء</button>
-                <button type="button" id="delStmtBtn" onclick="confirmDeleteStatement()" disabled class="flex-1 bg-rose-600 text-white py-2 rounded-lg text-sm font-semibold disabled:opacity-40">حذف نهائي</button>
+                <button type="button" id="delStmtBtn" onclick="confirmDeleteStatement()" disabled class="flex-1 bg-rose-600 text-white py-2 rounded-lg text-sm font-semibold disabled:opacity-40">تأكيد الحذف</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- نافذة إضافة مستفيد للكشف مباشرة من قسم التقارير -->
+    <div id="addLogFromReportModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4" style="z-index:75">
+        <div class="bg-white rounded-2xl max-w-md w-full p-5 shadow-2xl border border-slate-100">
+            <div class="flex justify-between items-center mb-3 border-b border-slate-100 pb-2">
+                <h3 class="font-bold text-indigo-800 text-sm flex items-center gap-1.5">
+                    <span>➕</span> إضافة مستفيد للكشف (من التقارير)
+                </h3>
+                <button type="button" onclick="closeAddLogFromReportModal()" class="text-slate-400 hover:text-rose-600 text-xl font-bold">&times;</button>
+            </div>
+
+            <div class="space-y-3 text-xs">
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">العطية المستهدفة *</label>
+                    <select id="repAddGrantSelect" onchange="onRepAddGrantChange()" class="w-full p-2 border border-slate-300 rounded-lg bg-indigo-50/50 font-semibold"></select>
+                </div>
+
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">ابحث عن المستفيد بالاسم أو المنطقة:</label>
+                    <input type="text" id="repAddBenSearch" oninput="filterRepAddBeneficiaries()" placeholder="اكتب جزءاً من الاسم لتصفية القائمة..." class="w-full p-2 border border-slate-300 rounded-lg mb-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <label class="block font-semibold text-slate-700 mb-1">اختر المستفيد *</label>
+                    <select id="repAddBenSelect" size="5" class="w-full p-2 border border-slate-300 rounded-lg bg-white"></select>
+                    <p id="repAddBenHint" class="text-[11px] text-slate-500 mt-1"></p>
+                </div>
+
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">الكمية الممنوحة *</label>
+                    <input type="number" id="repAddQuotaInput" value="1" min="1" class="w-full p-2 border border-slate-300 rounded-lg font-bold text-center">
+                </div>
+            </div>
+
+            <div class="flex gap-2 mt-4">
+                <button type="button" onclick="closeAddLogFromReportModal()" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 py-2.5 rounded-lg text-xs font-semibold">إلغاء</button>
+                <button type="button" onclick="saveLogFromReportModal()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-lg text-xs font-bold shadow-sm">إضافة وحفظ في الكشف</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- نافذة تأكيد الخروج عند تمرير العودة أو زر التراجع -->
+    <div id="exitConfirmModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4" style="z-index:80">
+        <div class="bg-white rounded-2xl max-w-xs w-full p-5 shadow-2xl border border-slate-200 text-center">
+            <div class="w-12 h-12 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center mx-auto mb-3 text-2xl">🚪</div>
+            <h3 class="text-base font-bold text-slate-800 mb-1">تأكيد الخروج</h3>
+            <p class="text-xs text-slate-600 mb-4 leading-relaxed">هل تريد الخروج من التطبيق؟</p>
+            <div class="flex gap-2">
+                <button type="button" onclick="cancelExitApp()" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-lg text-xs font-bold">البقاء في التطبيق</button>
+                <button type="button" onclick="confirmExitApp()" class="flex-1 bg-rose-600 hover:bg-rose-700 text-white py-2 rounded-lg text-xs font-semibold">نعم، خروج</button>
             </div>
         </div>
     </div>
@@ -766,6 +837,70 @@
         function logoutUser() {
             if (window.fbSignOut) window.fbSignOut().finally(() => window.location.replace('login.html'));
             else window.location.replace('login.html');
+        }
+
+        // ================= شاشة تأكيد الخروج عند تمرير العودة أو زر التراجع =================
+        let allowExitNavigation = false;
+        function pushExitGuardState() {
+            try {
+                history.pushState({ atayaExitGuard: true }, '', window.location.href);
+            } catch (_) {}
+        }
+
+        function setupBackNavigationGuard() {
+            pushExitGuardState();
+            window.addEventListener('popstate', () => {
+                if (allowExitNavigation) return;
+
+                // إغلاق أي نافذة منبثقة مفتوحة أولاً عند الضغط على رجوع بدلاً من الخروج المباشر
+                const stmtViewer = document.getElementById('statementViewer');
+                const delStmtModal = document.getElementById('deleteStatementModal');
+                const addRepModal = document.getElementById('addLogFromReportModal');
+                const backupMdl = document.getElementById('backupModal');
+
+                if (delStmtModal && !delStmtModal.classList.contains('hidden')) {
+                    closeDeleteStatement();
+                    pushExitGuardState();
+                    return;
+                }
+                if (stmtViewer && !stmtViewer.classList.contains('hidden')) {
+                    closeStatement();
+                    pushExitGuardState();
+                    return;
+                }
+                if (addRepModal && !addRepModal.classList.contains('hidden')) {
+                    closeAddLogFromReportModal();
+                    pushExitGuardState();
+                    return;
+                }
+                if (backupMdl && !backupMdl.classList.contains('hidden')) {
+                    closeBackupModal();
+                    pushExitGuardState();
+                    return;
+                }
+
+                // إظهار شاشة تأكيد الخروج
+                const exitModal = document.getElementById('exitConfirmModal');
+                if (exitModal) exitModal.classList.remove('hidden');
+                pushExitGuardState();
+            });
+        }
+
+        function cancelExitApp() {
+            const exitModal = document.getElementById('exitConfirmModal');
+            if (exitModal) exitModal.classList.add('hidden');
+        }
+
+        function confirmExitApp() {
+            allowExitNavigation = true;
+            const exitModal = document.getElementById('exitConfirmModal');
+            if (exitModal) exitModal.classList.add('hidden');
+            if (history.length > 2) {
+                history.go(-2);
+            } else {
+                window.close();
+                setTimeout(() => { history.back(); }, 150);
+            }
         }
 
         function syncToFirebase() {
@@ -1714,6 +1849,113 @@
             renderFilteredLogs();
         }
 
+        // ================= إضافة مستفيد للكشف مباشرة من قسم التقارير =================
+        function openAddLogFromReportModal() {
+            if (!requirePermission("add")) return;
+            if (grants.length === 0) return alert('يرجى تسجيل عطية أولاً في قسم العطايا.');
+            if (beneficiaries.length === 0) return alert('لا يوجد مستفيدون مسجلون في النظام.');
+
+            const grantSel = document.getElementById('repAddGrantSelect');
+            grantSel.innerHTML = grants.map(g => `<option value="${g.id}">${escHtml(g.name)} (${escHtml(g.date)})</option>`).join('');
+
+            // إذا كان هناك فلتر عطية محدد في التقارير، نختاره تلقائياً
+            const currentFilterGrantName = document.getElementById('filterGrant')?.value || '';
+            if (currentFilterGrantName) {
+                const matchedGrant = grants.find(g => g.name === currentFilterGrantName);
+                if (matchedGrant) grantSel.value = matchedGrant.id;
+            }
+
+            document.getElementById('repAddBenSearch').value = '';
+            onRepAddGrantChange();
+            document.getElementById('addLogFromReportModal').classList.remove('hidden');
+        }
+
+        function closeAddLogFromReportModal() {
+            document.getElementById('addLogFromReportModal').classList.add('hidden');
+        }
+
+        function onRepAddGrantChange() {
+            const grantId = document.getElementById('repAddGrantSelect').value;
+            const activeGrant = grants.find(g => g.id == grantId);
+            if (activeGrant) {
+                document.getElementById('repAddQuotaInput').value = activeGrant.defaultQuota || 1;
+            }
+            filterRepAddBeneficiaries();
+        }
+
+        function filterRepAddBeneficiaries() {
+            const grantId = document.getElementById('repAddGrantSelect').value;
+            const search = normalizeArabic(document.getElementById('repAddBenSearch')?.value || '');
+            const benSel = document.getElementById('repAddBenSelect');
+            const hint = document.getElementById('repAddBenHint');
+
+            const takenSet = new Set(
+                distributionLogs.filter(l => l.grantId == grantId).map(l => String(l.beneficiaryId))
+            );
+
+            let available = beneficiaries.filter(b => !takenSet.has(String(b.id)));
+            if (search) {
+                available = available.filter(b =>
+                    normalizeArabic(b.name).includes(search) ||
+                    normalizeArabic(b.area).includes(search) ||
+                    normalizeArabic(b.category).includes(search)
+                );
+            }
+
+            available = sortBeneficiariesList(available, 'alpha');
+
+            if (available.length === 0) {
+                benSel.innerHTML = `<option value="" disabled>لا يوجد مستفيد متاح غير مستلم مطابق للبحث</option>`;
+                hint.innerText = 'ملاحظة: يتم إخفاء المستفيدين الذين استلموا هذه العطية مسبقاً.';
+                return;
+            }
+
+            benSel.innerHTML = available.map((b, idx) =>
+                `<option value="${b.id}" ${idx === 0 ? 'selected' : ''}>${escHtml(b.name)} — (${escHtml(b.area || '-')})</option>`
+            ).join('');
+            hint.innerText = `متاح للإضافة في هذه العطية: ${available.length} مستفيد.`;
+        }
+
+        function saveLogFromReportModal() {
+            if (!requirePermission("add")) return;
+            const grantId = document.getElementById('repAddGrantSelect').value;
+            const benId = document.getElementById('repAddBenSelect').value;
+            const amount = Number(document.getElementById('repAddQuotaInput').value) || 1;
+
+            if (!grantId) return alert('يرجى اختيار العطية.');
+            if (!benId) return alert('يرجى اختيار المستفيد من القائمة.');
+
+            const activeGrant = grants.find(g => g.id == grantId);
+            const ben = beneficiaries.find(b => String(b.id) === String(benId));
+            if (!activeGrant || !ben) return;
+
+            if (distributionLogs.some(l => String(l.beneficiaryId) === String(ben.id) && l.grantId == activeGrant.id)) {
+                return alert(`المستفيد (${ben.name}) مسجل مسبقاً في كشف هذه العطية.`);
+            }
+
+            const todayISO = todayLocal();
+            const now = new Date();
+            const dateStr = now.toLocaleDateString('ar-YE') + ' ' + now.toLocaleTimeString('ar-YE', {hour: '2-digit', minute:'2-digit'});
+
+            distributionLogs.unshift({
+                id: Date.now() + Math.random(),
+                grantId: activeGrant.id,
+                grantName: activeGrant.name,
+                grantDonor: activeGrant.donor || 'فاعل خير',
+                beneficiaryId: ben.id,
+                amount: Number(amount),
+                timestamp: dateStr,
+                rawDate: todayISO,
+                createdByUser: loggedUser
+            });
+
+            syncToFirebase();
+            populateFilterDropdowns();
+            renderFilteredLogs();
+            closeAddLogFromReportModal();
+            alert(`تمت إضافة (${ben.name}) إلى كشف (${activeGrant.name}) بنجاح.`);
+        }
+
         // ================= الحل الذكي لمشاركة PDF في الواتساب =================
         async function sharePDFToWhatsAppSmart() {
             if (currentFilteredLogs.length === 0) return alert('لا توجد بيانات لمشاركتها.');
@@ -2087,7 +2329,7 @@
                     </div>
                     <div class="flex gap-2 mt-2">
                         <button type="button" onclick="openStatement('${g.id}')" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-1.5 rounded-lg text-xs font-semibold">عرض الكشف</button>
-                        <button type="button" onclick="askDeleteStatement('${g.id}')" class="px-3 border border-rose-300 text-rose-600 hover:bg-rose-50 rounded-lg text-xs">حذف</button>
+                        ${can('edit') ? `<button type="button" onclick="askDeleteStatement('${g.id}')" class="px-3 border border-rose-300 text-rose-600 hover:bg-rose-50 rounded-lg text-xs">حذف</button>` : ''}
                     </div>
                 </div>`;
             }).join('');
@@ -2231,15 +2473,18 @@
             window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`, '_blank');
         }
 
-        // ---------- الحذف العام ----------
+        // ---------- الحذف العام (مع التخيير بين حذف الكشف فقط أو مع العطية) ----------
         function askDeleteStatement(id) {
+            if (!requirePermission("edit")) return;
             pendingDeleteGrantId = id || currentStatementId;
             const d = buildStatementData(pendingDeleteGrantId);
             if (!d) return;
             const records = distributionLogs.filter(l => l.grantId == pendingDeleteGrantId).length;
             document.getElementById('delStmtInfo').innerHTML =
                 `<b>${escHtml(d.grant.name)}</b> (<bdi>${escHtml(d.grant.docNo || '-')}</bdi>)<br>
-                 سيُحذف: العطية + <b>${records}</b> حركة صرف لـ <b>${d.count}</b> مستفيد (إجمالي ${fmtNum(d.total)}).`;
+                 يحتوي الكشف على: <b>${records}</b> حركة صرف لـ <b>${d.count}</b> مستفيد (إجمالي ${fmtNum(d.total)}).`;
+            const defaultRadio = document.querySelector('input[name="delStmtMode"][value="logs_only"]');
+            if (defaultRadio) defaultRadio.checked = true;
             document.getElementById('delStmtAck').checked = false;
             document.getElementById('delStmtBtn').disabled = true;
             document.getElementById('deleteStatementModal').classList.remove('hidden');
@@ -2251,15 +2496,28 @@
         }
 
         async function confirmDeleteStatement() {
+            if (!requirePermission("edit")) return;
             const id = pendingDeleteGrantId;
             if (!id) return;
-            grants = grants.filter(g => g.id != id);
+            const mode = document.querySelector('input[name="delStmtMode"]:checked')?.value || 'logs_only';
+
             distributionLogs = distributionLogs.filter(l => l.grantId != id);
+            if (mode === 'with_grant') {
+                grants = grants.filter(g => g.id != id);
+            }
+
             closeDeleteStatement();
-            closeStatement();
+            if (mode === 'with_grant') {
+                closeStatement();
+            } else if (!document.getElementById('statementViewer').classList.contains('hidden')) {
+                refreshStatement();
+            }
             renderStatementsList();
+            renderGrants();
             await syncToFirebase();
-            alert('تم حذف العطية وكشفها وجميع حركات صرفها.');
+            alert(mode === 'with_grant'
+                ? 'تم حذف العطية وكشفها وجميع حركات صرفها نهائياً.'
+                : 'تم حذف حركات الصرف في الكشف بنجاح، مع الإبقاء على العطية مسجلة.');
         }
 
         function exportToExcel() {
@@ -2293,6 +2551,7 @@
         setDefaultDates();
         showSection('beneficiariesSection');
         updateCategoryDropdowns();
+        setupBackNavigationGuard();
     </script>
 </body>
 </html>
