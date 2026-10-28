@@ -953,7 +953,8 @@
             const hasAdmin = all.some(x => x.admin === true);
             if (!window.permissionSnapshotLoaded) return { view: false, add: false, edit: false, delete: false, reports: false, admin: false, bootstrap: false };
             const bootstrap = !all.length || !hasAdmin;
-            return { view: true, add: bootstrap, edit: bootstrap, delete: bootstrap, reports: bootstrap, admin: bootstrap, bootstrap };
+            // Accounts missing from the permission list must not retain implicit view access after removal.
+            return { view: bootstrap, add: bootstrap, edit: bootstrap, delete: bootstrap, reports: bootstrap, admin: bootstrap, bootstrap };
         }
         function can(action) { const p = permissionState; return action === 'view' ? p.view : p.admin || p[action] === true; }
         function requirePermission(action) {
