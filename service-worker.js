@@ -1,9 +1,9 @@
 /* Offline application shell and public library assets only.
    Never cache Firebase database, authentication, or Google Drive API responses. */
-const VERSION = 'ataya-shell-v1';
+const VERSION = 'ataya-shell-v2';
 const APP_SHELL = [
     './', './index.html', './login.html',
-    './manifest.json', './icon.png', './offline-sync.js'
+    './manifest.json?v=2', './icon.png?v=2', './icon-192.png?v=2', './offline-sync.js'
 ];
 const PRELOAD = [
     { url: 'https://cdn.tailwindcss.com', mode: 'no-cors' },
