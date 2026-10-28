@@ -708,7 +708,8 @@
         <div class="bg-white rounded-2xl max-w-xs w-full p-5 shadow-2xl border border-slate-200 text-center">
             <div class="w-12 h-12 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center mx-auto mb-3 text-2xl">🚪</div>
             <h3 class="text-base font-bold text-slate-800 mb-1">تأكيد الخروج</h3>
-            <p class="text-xs text-slate-600 mb-4 leading-relaxed">هل تريد الخروج من التطبيق؟</p>
+            <p class="text-xs text-slate-600 mb-3 leading-relaxed">هل تريد الخروج من التطبيق؟</p>
+            <p id="exitPendingNotice" class="hidden text-xs text-amber-900 bg-amber-50 border border-amber-200 rounded-lg p-3 mb-3 leading-relaxed"></p>
             <div class="flex gap-2">
                 <button type="button" onclick="cancelExitApp()" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-lg text-xs font-bold">البقاء في التطبيق</button>
                 <button type="button" onclick="confirmExitApp()" class="flex-1 bg-rose-600 hover:bg-rose-700 text-white py-2 rounded-lg text-xs font-semibold">نعم، خروج</button>
@@ -1188,6 +1189,13 @@
             window.addEventListener('popstate', () => {
                 if (allowExitNavigation) return;
 
+                const logoutModal = document.getElementById('logoutConfirmModal');
+                if (logoutModal && !logoutModal.classList.contains('hidden')) {
+                    closeLogoutConfirmation();
+                    pushExitGuardState();
+                    return;
+                }
+
                 const stmtViewer = document.getElementById('statementViewer');
                 const delStmtModal = document.getElementById('deleteStatementModal');
                 const addRepModal = document.getElementById('addLogFromReportModal');
@@ -1215,7 +1223,13 @@
                 }
 
                 const exitModal = document.getElementById('exitConfirmModal');
-                if (exitModal) exitModal.classList.remove('hidden');
+                if (exitModal) {
+                    const pending = typeof window.fbPendingChangesCount === 'function' ? window.fbPendingChangesCount() : 0;
+                    const warning = document.getElementById('exitPendingNotice');
+                    warning.classList.toggle('hidden', pending === 0);
+                    if (pending) warning.textContent = 'تنبيه: لديك ' + pending + ' تعديل غير متزامن. يُفضّل البقاء حتى تكتمل المزامنة قبل مغادرة التطبيق.';
+                    exitModal.classList.remove('hidden');
+                }
                 pushExitGuardState();
             });
         }
