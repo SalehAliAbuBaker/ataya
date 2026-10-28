@@ -9,6 +9,11 @@
     <link rel="icon" type="image/png" href="icon.png">
     <link rel="apple-touch-icon" href="icon.png">
     <link rel="manifest" href="manifest.json">
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('./service-worker.js').catch(error => console.warn('Offline setup:', error));
+        }
+    </script>
     <meta name="theme-color" content="#4338ca">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -164,7 +169,7 @@
                 </div>
 
                 <p class="text-xs text-slate-600 mb-4 leading-relaxed">
-                    البيانات متصلة بـ <b>Firebase</b> ويتم حفظها تلقائياً. يمكنك أيضاً تنزيل ملف احتياطي يدوي أو رفعه إلى Google Drive.
+                    يعمل سجل العطايا دون إنترنت بعد تسجيل الدخول أول مرة. تُحفظ عملياتك على هذا الجهاز، وتُرسل تلقائيًا إلى <b>Firebase</b> عند عودة الإنترنت. يمكنك أيضًا تنزيل نسخة احتياطية يدويًا أو رفعها إلى Google Drive عند الاتصال.
                 </p>
 
                 <div class="space-y-3">
@@ -181,7 +186,7 @@
                     </div>
 
                     <div class="p-3 bg-emerald-50 border border-emerald-200 rounded-xl">
-                        <span class="block font-bold text-xs text-emerald-900 mb-1">2. استرجاع نسخة سابقة:</span>
+                        <span class="block font-bold text-xs text-emerald-900 mb-1">2. استرجاع نسخة سابقة (استبدال كامل):</span>
                         <input type="file" id="restoreFileInput" accept=".json" class="hidden" onchange="importBackupData(event)">
                         <button type="button" onclick="document.getElementById('restoreFileInput').click()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 rounded-lg text-xs shadow-sm flex items-center justify-center gap-1">
                             📤 استيراد واسترجاع البيانات
@@ -621,6 +626,7 @@
     </div>
 
 
+    <script src="./offline-sync.js"></script>
     <!-- Firebase: Auth + Realtime Database -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
@@ -643,11 +649,13 @@
         const auth = getAuth(app);
 
         const ROOT = 'atp_v2';
-        const OLD  = 'atp_data';
-        const COLS = ['beneficiaries', 'grants', 'distributionLogs'];
-        let permissionRecords = {};
+        const OLD = 'atp_data';
+        const offline = window.AtayaOffline;
+        let ready = false;
+        let connected = false;
+        let sending = false;
+        let migrationChecked = false;
         window.fbPermissionRecords = {};
-
         const key = id => String(id).replace(/[.#$\[\]\/]/g, '_');
         const toArr = v => {
             if (!v) return [];
@@ -658,67 +666,64 @@
                           .sort((a, b) => Number(b.id) - Number(a.id));
         };
 
-        let last = { beneficiaries: {}, grants: {}, distributionLogs: {} };
-        let ready = false;
-
         window.fbSetBadge = (state) => {
             const badge = document.getElementById('cloudStatusBadge');
             if (!badge) return;
-            const m = {
-                ok:    ['bg-emerald-400', 'سحابي متصل', 'bg-emerald-900/60 border-emerald-400/40'],
-                error: ['bg-rose-400', 'محلي (غير متصل)', 'bg-rose-900/60 border-rose-400/40']
-            }[state];
-            badge.innerHTML = `<span class="inline-block w-2 h-2 rounded-full ${m[0]}"></span> ${m[1]}`;
-            badge.className = `text-[10px] ${m[2]} border px-2 py-0.5 rounded-full flex items-center gap-1`;
+            const count = offline.account ? offline.pendingCount() : 0;
+            const modes = {
+                ok: ['bg-emerald-400', 'متصل ومتزامن', 'bg-emerald-900/60 border-emerald-400/40'],
+                pending: ['bg-amber-400', 'بانتظار رفع ' + count + ' تعديل', 'bg-amber-900/60 border-amber-400/40'],
+                error: ['bg-rose-400', count ? 'محلي - ' + count + ' تعديل محفوظ' : 'محلي - دون اتصال', 'bg-rose-900/60 border-rose-400/40'],
+                connecting: ['bg-amber-400', 'الربط بالسحابة...', 'bg-indigo-900/60 border-indigo-400/40']
+            };
+            const m = modes[state] || modes.connecting;
+            badge.innerHTML = '<span class="inline-block w-2 h-2 rounded-full ' + m[0] + '"></span> ' + m[1];
+            badge.className = 'text-[10px] ' + m[2] + ' border px-2 py-0.5 rounded-full flex items-center gap-1';
+        };
+        function refreshBadge() {
+            window.fbSetBadge(!connected ? 'error' : offline.pendingCount() ? 'pending' : ready ? 'ok' : 'connecting');
+        }
+        window.fbSignOut = () => signOut(auth);
+        window.fbPermissionUpdate = updates => {
+            if (!connected) return Promise.reject(new Error('يلزم الاتصال بالإنترنت لتعديل الصلاحيات'));
+            return update(ref(db, ROOT), updates);
         };
 
-        window.fbSignOut = () => signOut(auth);
-        window.fbPermissionUpdate = updates => update(ref(db, ROOT), updates);
+        async function flushPending() {
+            if (!ready || !connected || sending || !offline.pendingCount()) {
+                refreshBadge();
+                return;
+            }
+            sending = true;
+            try {
+                while (connected && offline.pendingCount()) {
+                    const batch = offline.nextBatch();
+                    const changes = { ...batch.patch, lastUpdated: new Date().toISOString() };
+                    await update(ref(db, ROOT), changes);
+                    offline.acknowledge(batch);
+                    refreshBadge();
+                }
+            } catch (error) {
+                console.error('تعذر رفع التعديلات المحلية، ستُعاد المحاولة:', error);
+                window.fbSetBadge('error');
+            } finally {
+                sending = false;
+                refreshBadge();
+            }
+        }
 
         window.fbPush = async function () {
-            if (!ready) return;
-            const cur = { beneficiaries, grants, distributionLogs };
-            const upd = {};
-            const next = {};
-            for (const c of COLS) {
-                next[c] = {};
-                for (const item of cur[c]) {
-                    const k = item._fbKey || key(item.id);
-                    const cleanItem = { ...item };
-                    delete cleanItem._fbKey;
-                    const j = JSON.stringify(cleanItem);
-                    next[c][k] = j;
-                    if (last[c][k] !== j) upd[`${c}/${k}`] = cleanItem;
-                }
-                for (const k of Object.keys(last[c])) {
-                    if (!(k in next[c])) upd[`${c}/${k}`] = null;
-                }
-            }
-            if (!Object.keys(upd).length) return;
-            upd.lastUpdated = new Date().toISOString();
-            await update(ref(db, ROOT), upd);
-            last = next;
-            window.fbSetBadge('ok');
+            if (!offline.account) return;
+            offline.stage({ beneficiaries, grants, distributionLogs });
+            refreshBadge();
+            return flushPending();
         };
 
         function applyAndRender(d) {
             beneficiaries = toArr(d.beneficiaries);
             grants = toArr(d.grants);
             distributionLogs = toArr(d.distributionLogs);
-            for (const c of COLS) {
-                last[c] = {};
-                const arr = c === 'beneficiaries' ? beneficiaries : c === 'grants' ? grants : distributionLogs;
-                for (const item of arr) {
-                    const k = item._fbKey || key(item.id);
-                    const cleanItem = { ...item };
-                    delete cleanItem._fbKey;
-                    last[c][k] = JSON.stringify(cleanItem);
-                }
-            }
-            localStorage.setItem('alata_beneficiaries', JSON.stringify(beneficiaries));
-            localStorage.setItem('alata_grants', JSON.stringify(grants));
-            localStorage.setItem('alata_logs', JSON.stringify(distributionLogs));
-
+            offline.saveLocal({ beneficiaries, grants, distributionLogs });
             renderBeneficiaries();
             renderGrants();
             updateCategoryDropdowns();
@@ -728,51 +733,75 @@
             if (!document.getElementById('statementViewer').classList.contains('hidden')) refreshStatement();
         }
 
+        async function migratePreviousRoot() {
+            if (migrationChecked || !connected) return;
+            migrationChecked = true;
+            try {
+                const previous = await get(ref(db, OLD));
+                if (!previous.exists() || offline.pendingCount()) return;
+                const current = offline.localData();
+                if (current.beneficiaries.length || current.grants.length || current.distributionLogs.length) return;
+                const d = previous.val();
+                beneficiaries = toArr(d.beneficiaries);
+                grants = toArr(d.grants);
+                distributionLogs = toArr(d.distributionLogs);
+                offline.saveLocal({ beneficiaries, grants, distributionLogs });
+                await window.fbPush();
+                applyAndRender({ beneficiaries, grants, distributionLogs });
+            } catch (error) {
+                console.warn('Legacy database migration deferred:', error);
+                migrationChecked = false;
+            }
+        }
+
         let started = false;
-        async function start() {
+        function start() {
             if (started) return;
             started = true;
             const rootRef = ref(db, ROOT);
-            try {
-                const snap = await get(rootRef);
-                if (!snap.exists()) {
-                    const old = await get(ref(db, OLD)).catch(() => null);
-                    if (old && old.exists()) {
-                        const o = old.val();
-                        beneficiaries = toArr(o.beneficiaries);
-                        grants = toArr(o.grants);
-                        distributionLogs = toArr(o.distributionLogs);
-                        ready = true;
-                        await window.fbPush();
-                    }
-                }
-            } catch (e) {
-                console.error(e);
-                window.fbSetBadge('error');
-            }
-
-            onValue(rootRef, (s) => {
-                const rootData = s.val() || {};
-                permissionRecords = rootData.permissions || {};
-                window.fbPermissionRecords = permissionRecords;
-                window.setPermissionRecords && window.setPermissionRecords(permissionRecords);
-                applyAndRender(rootData);
+            onValue(ref(db, '.info/connected'), snapshot => {
+                connected = snapshot.val() === true;
+                refreshBadge();
+                if (connected) flushPending();
+            }, error => {
+                connected = false;
+                console.warn('Firebase connection status:', error);
+                refreshBadge();
+            });
+            onValue(rootRef, snapshot => {
+                // RTDB may emit speculative local events; only accept a confirmed connection
+                // as the new server baseline, to protect saved offline edits.
+                if (!connected) { refreshBadge(); return; }
+                const rootData = snapshot.val() || {};
+                offline.savePermissions(rootData.permissions || {});
+                window.permissionSnapshotLoaded = true;
+                window.setPermissionRecords && window.setPermissionRecords(rootData.permissions || {});
+                const merged = offline.applyServer(rootData);
+                applyAndRender(merged);
                 ready = true;
-                window.fbSetBadge('ok');
-            }, (error) => {
+                refreshBadge();
+                if (!snapshot.exists()) migratePreviousRoot();
+                flushPending();
+            }, error => {
                 console.error('Firebase Sync Error:', error);
                 window.fbSetBadge('error');
             });
         }
 
-        onAuthStateChanged(auth, (user) => {
+        onAuthStateChanged(auth, user => {
             if (!user) { window.location.replace('login.html'); return; }
+            offline.initialize(user.uid);
             loggedUser = user.displayName || (user.email || '').split('@')[0] || 'مسؤول';
             window.currentUserEmail = (user.email || '').toLowerCase();
             window.currentUserUid = user.uid;
+            const savedPermissions = offline.cachedPermissions();
+            window.permissionSnapshotLoaded = savedPermissions.verified === true;
+            window.setPermissionRecords && window.setPermissionRecords(savedPermissions.records || {});
+            window.offlineRestoreForUser && window.offlineRestoreForUser();
             const el = document.getElementById('displayUserName');
             if (el) el.innerText = loggedUser;
             document.documentElement.style.visibility = 'visible';
+            refreshBadge();
             start();
         });
     </script>
@@ -790,9 +819,19 @@
 
         document.getElementById('reportPrintDate').innerText = new Date().toLocaleDateString('ar-YE');
 
-        let beneficiaries = JSON.parse(localStorage.getItem('alata_beneficiaries')) || [];
-        let grants = JSON.parse(localStorage.getItem('alata_grants')) || [];
-        let distributionLogs = JSON.parse(localStorage.getItem('alata_logs')) || [];
+        let beneficiaries = [];
+        let grants = [];
+        let distributionLogs = [];
+
+        window.offlineRestoreForUser = () => {
+            const d = window.AtayaOffline.localData();
+            beneficiaries = Array.isArray(d.beneficiaries) ? d.beneficiaries : [];
+            grants = Array.isArray(d.grants) ? d.grants : [];
+            distributionLogs = Array.isArray(d.distributionLogs) ? d.distributionLogs : [];
+            renderBeneficiaries();
+            renderGrants();
+            updateCategoryDropdowns();
+        };
         let currentFilteredLogs = [];
         let activeSectionId = 'beneficiariesSection';
 
@@ -809,6 +848,7 @@
             const record = (window.fbPermissionRecords || {})[permissionKey(email)] || all.find(x => String(x.email || '').toLowerCase() === email);
             if (record) return { view: record.view !== false, add: record.add === true, edit: record.edit === true, reports: record.reports === true, admin: record.admin === true };
             const hasAdmin = all.some(x => x.admin === true);
+            if (!window.permissionSnapshotLoaded) return { view: false, add: false, edit: false, reports: false, admin: false, bootstrap: false };
             const bootstrap = !all.length || !hasAdmin;
             return { view: true, add: bootstrap, edit: bootstrap, reports: bootstrap, admin: bootstrap, bootstrap };
         }
@@ -930,14 +970,19 @@
         }
 
         function syncToFirebase() {
-            localStorage.setItem('alata_beneficiaries', JSON.stringify(beneficiaries));
-            localStorage.setItem('alata_grants', JSON.stringify(grants));
-            localStorage.setItem('alata_logs', JSON.stringify(distributionLogs));
-            if (!window.fbPush) return Promise.resolve();
-            return window.fbPush().catch(err => {
-                console.error('خطأ أثناء الرفع السحابي:', err);
-                window.fbSetBadge && window.fbSetBadge('error');
-            });
+            try {
+                window.AtayaOffline.saveLocal({ beneficiaries, grants, distributionLogs });
+                if (!window.fbPush) return Promise.resolve(true);
+                return window.fbPush().then(() => true).catch(err => {
+                    console.error('تعذر حفظ التعديلات في قائمة المزامنة:', err);
+                    alert('تعذر حفظ التعديلات في قائمة المزامنة؛ تحقق من مساحة الجهاز.');
+                    return false;
+                });
+            } catch (err) {
+                console.error('تعذر حفظ البيانات محلياً:', err);
+                alert('تعذر حفظ البيانات محلياً؛ قد تكون مساحة المتصفح ممتلئة.');
+                return Promise.resolve(false);
+            }
         }
 
         function normalizeArabic(text) {
@@ -1116,8 +1161,9 @@
                         grants = parsed.grants;
                         distributionLogs = parsed.distributionLogs;
 
-                        syncToFirebase().then(() => {
-                            alert('تم استرجاع ومزامنة البيانات بنجاح!');
+                        syncToFirebase().then(saved => {
+                            if (!saved) return;
+                            alert('تم استرجاع البيانات محلياً. ستُزامَن مع السحابة عند توفر الاتصال.');
                             closeBackupModal();
                             location.reload();
                         });
