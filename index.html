@@ -1433,23 +1433,29 @@
         }
 
         function updateCategoryDropdowns() {
-            const categories = [...new Set(beneficiaries.map(b => b.category).filter(Boolean))];
-            
-            const distCatSelect = document.getElementById('distCategorySelect');
-            if (distCatSelect) {
-                const currentDistVal = distCatSelect.value || 'الكل';
-                distCatSelect.innerHTML = '<option value="الكل">كل الفئات</option>' + 
-                    categories.map(c => `<option value="${c}">${c}</option>`).join('');
-                distCatSelect.value = categories.includes(currentDistVal) ? currentDistVal : 'الكل';
+            const categories = [...new Set(beneficiaries.map(b => String(b.category || '').trim()).filter(Boolean))]
+                .sort((a, b) => a.localeCompare(b, 'ar'));
+
+            // Create options with textContent, never interpolate user-entered category names into HTML.
+            function rebuild(selectId, allLabel, allValue) {
+                const select = document.getElementById(selectId);
+                if (!select) return;
+                const previous = select.value;
+                const first = document.createElement('option');
+                first.value = allValue;
+                first.textContent = allLabel;
+                const options = categories.map(name => {
+                    const option = document.createElement('option');
+                    option.value = name;
+                    option.textContent = name;
+                    return option;
+                });
+                select.replaceChildren(first, ...options);
+                select.value = categories.includes(previous) ? previous : allValue;
             }
 
-            const filterCatSelect = document.getElementById('filterCategory');
-            if (filterCatSelect) {
-                const currentFilterVal = filterCatSelect.value;
-                filterCatSelect.innerHTML = '<option value="">جميع الفئات</option>' + 
-                    categories.map(c => `<option value="${c}">${c}</option>`).join('');
-                filterCatSelect.value = currentFilterVal;
-            }
+            rebuild('distCategorySelect', 'كل الفئات', 'الكل');
+            rebuild('filterCategory', 'جميع الفئات', '');
             window.AtayaCategories?.refresh();
         }
 
