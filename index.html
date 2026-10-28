@@ -988,6 +988,8 @@
             });
             const adminNav = document.getElementById('nav-permissionsSection');
             if (adminNav) adminNav.classList.toggle('hidden', !permissionState.admin);
+            const customFieldButton = document.getElementById('addBeneficiaryFieldBtn');
+            if (customFieldButton) customFieldButton.classList.toggle('hidden', !permissionState.admin);
 
             const reportsAllowed = permissionState.admin || permissionState.reports;
             ['nav-reportsSection', 'nav-statementsSection'].forEach(id => {
