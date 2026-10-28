@@ -332,6 +332,7 @@
                         </div>
                     </div>
 
+                    <div class="mb-3 rounded-lg border border-indigo-200 bg-indigo-50 p-3"><div class="flex flex-wrap items-center justify-between gap-2 mb-2"><h3 class="text-sm font-bold text-indigo-800">حقول المستفيدين الإضافية</h3><button type="button" id="addBeneficiaryFieldBtn" onclick="addBeneficiaryGlobalField()" class="hidden text-xs font-bold border border-indigo-300 bg-white rounded-lg px-3 py-1.5">+ إضافة حقل عام</button></div><p class="text-xs text-slate-500 mb-2">الحقول التي يضيفها المدير تظهر لجميع المستفيدين، وتُدرج في نموذج Excel تلقائيًا.</p><div id="beneficiaryExtraFields" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div></div>
                     <button type="submit" id="benSubmitBtn" class="w-full bg-indigo-600 text-white font-semibold py-2.5 rounded-lg hover:bg-indigo-700 transition text-sm">حفظ المستفيد في السجل</button>
                 </form>
             </div>
@@ -895,6 +896,7 @@
                 // as the new server baseline, to protect saved offline edits.
                 if (!connected) { refreshBadge(); return; }
                 const rootData = snapshot.val() || {};
+                window.setBeneficiaryGlobalFields && window.setBeneficiaryGlobalFields(rootData.beneficiaryFields || {});
                 offline.savePermissions(rootData.permissions || {});
                 window.permissionSnapshotLoaded = true;
                 window.setPermissionRecords && window.setPermissionRecords(rootData.permissions || {});
@@ -1463,9 +1465,9 @@
         // Download the same six-column layout consumed by importExcel().
         function downloadExcelTemplate() {
             if (typeof XLSX === 'undefined') return alert('مكتبة Excel غير متاحة حاليًا. تحقق من الاتصال بالإنترنت.');
-            const columns = ['اسم المستفيد', 'المنطقة', 'رقم الهاتف', 'عدد أفراد الأسرة', 'نسبة الاحتياج', 'الفئة'];
+            const columns = ['اسم المستفيد', 'المنطقة', 'رقم الهاتف', 'عدد أفراد الأسرة', 'نسبة الاحتياج', 'الفئة', ...beneficiaryGlobalFields.map(f => f.name)];
             const ws = XLSX.utils.aoa_to_sheet([columns]);
-            ws['!cols'] = [{wch: 30}, {wch: 20}, {wch: 18}, {wch: 20}, {wch: 18}, {wch: 20}];
+            ws['!cols'] = columns.map((column, index) => ({wch: index === 0 ? 30 : Math.max(18, Math.min(32, column.length + 8))}));
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, 'المستفيدون');
             XLSX.writeFile(wb, 'نموذج_رفع_المستفيدين_سجل_العطايا.xlsx');
@@ -1507,6 +1509,7 @@
                         if (foundCat !== -1) catIdx = foundCat;
                     }
 
+                    const extraColumnIndexes = beneficiaryGlobalFields.map(f => ({id: f.id, index: startRow ? headerRow.findIndex(h => h === f.name) : -1}));
                     let addedCount = 0;
                     let skippedCount = 0;
 
@@ -1543,7 +1546,8 @@
                             phone: phoneVal,
                             familyCount: famVal,
                             needPercent: needVal,
-                            category: catVal
+                            category: catVal,
+                            extraFields: Object.fromEntries(extraColumnIndexes.filter(f => f.index >= 0).map(f => [f.id, String(row[f.index] ?? '').trim()]))
                         });
                         addedCount++;
                     }
@@ -1557,6 +1561,59 @@
                 }
             };
             reader.readAsArrayBuffer(file);
+        }
+
+        // Shared custom fields, identified by stable Firebase keys.
+        let beneficiaryGlobalFields = [];
+        window.setBeneficiaryGlobalFields = fields => {
+            beneficiaryGlobalFields = Object.entries(fields || {}).filter(([, f]) => f && typeof f.name === 'string')
+                .map(([id, f]) => ({id, name: f.name.trim()})).filter(f => f.name);
+            renderBeneficiaryExtraInputs();
+            const button = document.getElementById('addBeneficiaryFieldBtn');
+            if (button) button.classList.toggle('hidden', !permissionState.admin);
+            renderBeneficiaries();
+        };
+        function renderBeneficiaryExtraInputs(values) {
+            const container = document.getElementById('beneficiaryExtraFields');
+            if (!container) return;
+            const previous = values || readBeneficiaryExtraValues();
+            container.replaceChildren();
+            for (const field of beneficiaryGlobalFields) {
+                const wrap = document.createElement('div');
+                const label = document.createElement('label');
+                label.className = 'block text-xs font-semibold text-slate-700 mb-1';
+                label.textContent = field.name;
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.maxLength = 250;
+                input.dataset.extraFieldId = field.id;
+                input.className = 'w-full p-2 border border-slate-300 rounded-lg text-sm';
+                input.value = previous[field.id] || '';
+                wrap.append(label, input);
+                container.appendChild(wrap);
+            }
+        }
+        function readBeneficiaryExtraValues() {
+            return Object.fromEntries([...document.querySelectorAll('#beneficiaryExtraFields [data-extra-field-id]')]
+                .map(input => [input.dataset.extraFieldId, input.value.trim()]));
+        }
+        async function addBeneficiaryGlobalField() {
+            if (!permissionState.admin) return alert('إضافة الحقول العامة متاحة لمدير الصلاحيات فقط.');
+            const name = prompt('اكتب اسم الحقل الجديد الذي سيظهر لجميع المستفيدين وفي نموذج Excel:');
+            if (name === null) return;
+            const trimmed = name.trim();
+            if (!trimmed || trimmed.length > 70) return alert('اكتب اسم حقل من 1 إلى 70 حرفًا.');
+            const reserved = ['اسم المستفيد', 'المنطقة', 'رقم الهاتف', 'عدد أفراد الأسرة', 'نسبة الاحتياج', 'الفئة'];
+            if (reserved.includes(trimmed) || beneficiaryGlobalFields.some(f => f.name === trimmed))
+                return alert('اسم الحقل مستخدم بالفعل؛ اختر اسمًا آخر.');
+            const id = 'field_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+            try {
+                await window.fbPermissionUpdate({['beneficiaryFields/' + id]: {name: trimmed}});
+                alert('تمت إضافة الحقل العام. سيظهر ضمن بيانات المستفيدين ونموذج Excel.');
+            } catch (error) {
+                console.error('Unable to add beneficiary field', error);
+                alert('تعذر حفظ الحقل العام في Firebase. تحقق من الاتصال والصلاحيات.');
+            }
         }
 
         // ================= إدارة المستفيدين =================
@@ -1579,7 +1636,8 @@
                 phone: document.getElementById('benPhone').value.trim() || '-',
                 familyCount: document.getElementById('benFamilyCount').value || '-',
                 needPercent: needVal !== '' ? Number(needVal) : null,
-                category: window.AtayaCategories?.canonicalCategory(document.getElementById('benCategory').value) || 'عام'
+                category: window.AtayaCategories?.canonicalCategory(document.getElementById('benCategory').value) || 'عام',
+                extraFields: readBeneficiaryExtraValues()
             };
 
             if (editId) {
@@ -1611,6 +1669,7 @@
             document.getElementById('benFamilyCount').value = ben.familyCount === '-' ? '' : ben.familyCount;
             document.getElementById('benNeedPercent').value = ben.needPercent !== null ? ben.needPercent : '';
             document.getElementById('benCategory').value = ben.category;
+            renderBeneficiaryExtraInputs(ben.extraFields || {});
 
             document.getElementById('benFormTitle').innerText = 'تعديل بيانات مستفيد';
             document.getElementById('benSubmitBtn').innerText = 'تحديث البيانات';
@@ -1622,6 +1681,7 @@
 
         function resetBenForm() {
             document.getElementById('benForm').reset();
+            renderBeneficiaryExtraInputs({});
             document.getElementById('editBenId').value = '';
             document.getElementById('benFormTitle').innerText = 'إضافة مستفيد جديد';
             document.getElementById('benSubmitBtn').innerText = 'حفظ المستفيد في السجل';
@@ -1666,6 +1726,7 @@
                         <div class="text-slate-500 mt-0.5 flex flex-wrap gap-2">
                             <span>المنطقة: <b>${b.area}</b></span>
                             <span>الأسرة: <b>${b.familyCount}</b></span>
+                            ${beneficiaryGlobalFields.map(f => b.extraFields?.[f.id] ? '<span>' + escHtml(f.name) + ': <b>' + escHtml(String(b.extraFields[f.id])) + '</b></span>' : '').join('')}
                             ${b.needPercent !== null && b.needPercent !== undefined ? `<span class="bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-bold">الاحتياج: ${b.needPercent}%</span>` : ''}
                         </div>
                     </div>
