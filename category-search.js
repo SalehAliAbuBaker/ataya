@@ -9,7 +9,8 @@
         .replace(/[أإآٱ]/g, "ا")
         .replace(/ة/g, "ه").replace(/ى/g, "ي")
         .replace(/ؤ/g, "و").replace(/ئ/g, "ي")
-        .replace(/\s+/g, " ").toLowerCase();
+        .replace(/\s+/g, " ").toLowerCase()
+        .replace(/^ال(?=\S{2})/, "");
 
     const controls = [];
     let outsideListenerAdded = false;
