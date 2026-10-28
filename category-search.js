@@ -90,7 +90,8 @@
                     })
                     .map(c => ({ ...c, value: c.name }));
             } else {
-                entries = [{ name: kind === "dist" ? "كل الفئات" : "جميع الفئات", value: select.options[0]?.value || "", count: null }];
+                entries = [];
+                if (!search) entries.push({ name: kind === "dist" ? "كل الفئات" : "جميع الفئات", value: select.options[0]?.value || "", count: null });
                 entries.push(...available.filter(c => !search ||
                     normalize(c.name).includes(search)).map(c => ({ ...c, value: c.name })));
             }
