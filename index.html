@@ -687,6 +687,22 @@
         </div>
     </div>
 
+
+    <!-- تأكيد تسجيل الخروج من حساب المستخدم -->
+    <div id="logoutConfirmModal" class="hidden fixed inset-0 bg-slate-900/65 backdrop-blur-xs items-center justify-center p-4" style="z-index:90" role="dialog" aria-modal="true" aria-labelledby="logoutConfirmTitle">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-5 shadow-2xl border border-slate-200 text-center">
+            <div class="w-12 h-12 rounded-full bg-rose-100 text-rose-700 flex items-center justify-center mx-auto mb-3 text-2xl">🚪</div>
+            <h3 id="logoutConfirmTitle" class="text-lg font-bold text-slate-800 mb-2">تأكيد تسجيل الخروج</h3>
+            <p class="text-sm text-slate-600 mb-3">هل تريد تسجيل الخروج من حسابك في سجل العطايا؟</p>
+            <p id="logoutPendingNotice" class="hidden text-xs text-amber-900 bg-amber-50 border border-amber-200 rounded-lg p-3 mb-3 leading-relaxed"></p>
+            <p id="logoutConfirmError" class="hidden text-xs text-rose-700 mb-3"></p>
+            <div class="flex gap-2">
+                <button type="button" id="logoutStayButton" onclick="closeLogoutConfirmation()" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-lg text-sm font-bold">البقاء في التطبيق</button>
+                <button type="button" id="logoutProceedButton" onclick="confirmLogoutUser()" class="flex-1 bg-rose-600 hover:bg-rose-700 text-white py-2.5 rounded-lg text-sm font-bold">نعم، تسجيل الخروج</button>
+            </div>
+        </div>
+    </div>
+
     <!-- نافذة تأكيد الخروج -->
     <div id="exitConfirmModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4" style="z-index:80">
         <div class="bg-white rounded-2xl max-w-xs w-full p-5 shadow-2xl border border-slate-200 text-center">
@@ -764,6 +780,7 @@
             window.fbSetBadge(!connected ? 'error' : offline.pendingCount() ? 'pending' : ready ? 'ok' : 'connecting');
         }
         window.fbSignOut = () => signOut(auth);
+        window.fbPendingChangesCount = () => offline.pendingCount();
         window.fbPermissionUpdate = updates => {
             if (!connected) return Promise.reject(new Error('يلزم الاتصال بالإنترنت لتعديل الصلاحيات'));
             return update(ref(db, ROOT), updates);
@@ -1126,8 +1143,36 @@
         async function removeUserPermission(k) { if (!permissionState.admin || !confirm('حذف صلاحيات المستخدم؟ سيبقى حساب الدخول موجودًا في Firebase Authentication.')) return; const updates = {}; updates[`permissions/${k}`] = null; try { await window.fbPermissionUpdate(updates); } catch (_) { alert('تعذر حذف الصلاحية.'); } }
 
         function logoutUser() {
-            if (window.fbSignOut) window.fbSignOut().finally(() => window.location.replace('login.html'));
-            else window.location.replace('login.html');
+            const modal = document.getElementById('logoutConfirmModal');
+            const notice = document.getElementById('logoutPendingNotice');
+            const count = typeof window.fbPendingChangesCount === 'function' ? window.fbPendingChangesCount() : 0;
+            notice.classList.toggle('hidden', count === 0);
+            if (count) notice.textContent = 'تنبيه: لديك ' + count + ' تعديل غير متزامن مع السحابة. يُفضّل البقاء حتى تكتمل المزامنة؛ قد لا تتوفر التعديلات عند تسجيل الدخول مجددًا.';
+            document.getElementById('logoutConfirmError').classList.add('hidden');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            document.getElementById('logoutStayButton').focus();
+        }
+        function closeLogoutConfirmation() {
+            const modal = document.getElementById('logoutConfirmModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+        async function confirmLogoutUser() {
+            const button = document.getElementById('logoutProceedButton');
+            button.disabled = true;
+            button.textContent = 'جارٍ تسجيل الخروج...';
+            try {
+                if (typeof window.fbSignOut === 'function') await window.fbSignOut();
+                window.location.replace('login.html');
+            } catch (error) {
+                console.error('Unable to sign out:', error);
+                const message = document.getElementById('logoutConfirmError');
+                message.textContent = 'تعذّر تسجيل الخروج. تحقق من الاتصال وحاول مجددًا.';
+                message.classList.remove('hidden');
+                button.disabled = false;
+                button.textContent = 'نعم، تسجيل الخروج';
+            }
         }
 
         // ================= شاشة تأكيد الخروج والتراجع =================
