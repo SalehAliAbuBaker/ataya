@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>تجريبي | سجل العطايا والمستفيدين</title>
+    <title>سجل العطايا | تجريبي</title>
 
     <!-- أيقونة التطبيق وإعدادات التثبيت على شاشة الجوال -->
     <link rel="icon" type="image/png" href="../icon.png?v=2">
     <link rel="apple-touch-icon" href="../icon.png?v=2">
-    <link rel="manifest" href="../manifest.json?v=2">
+    <link rel="manifest" href="./manifest.json?v=3">
     <script>
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('../service-worker.js').catch(error => console.warn('Offline setup:', error));
@@ -148,7 +148,10 @@
         <div class="max-w-4xl mx-auto flex flex-wrap justify-between items-center gap-2">
             <div class="flex items-center gap-2">
                 <img src="../icon.png?v=2" alt="" onerror="this.style.display='none'" class="w-7 h-7 rounded-md bg-white/10 p-0.5 object-contain">
-                <h1 class="text-base md:text-lg font-bold">سجل العطايا والمستفيدين</h1>
+                <div class="leading-tight">
+                    <h1 class="text-base md:text-lg font-bold">سجل العطايا</h1>
+                    <p class="text-[10px] text-indigo-100 mt-0.5">الإصدار التجريبي 1.0.0</p>
+                </div>
                 <span id="cloudStatusBadge" class="text-[10px] bg-indigo-900/70 border border-indigo-400/40 px-2 py-0.5 rounded-full flex items-center gap-1">
                     <span class="inline-block w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span> جاري المزامنة...
                 </span>
@@ -2496,7 +2499,7 @@
             return `<div class="stmt-top">
                 <div class="stmt-head">
                     <div class="basmala font-bold text-slate-800 text-sm mb-1" style="font-family:'Tajawal',Tahoma,sans-serif; direction:rtl; unicode-bidi:isolate;">بسم الله الرحمن الرحيم</div>
-                    <div class="org">سجل العطايا والمستفيدين</div>
+                    <div class="org">سجل العطايا</div>
                     <h1>كشف صرف عطية</h1>
                 </div>
                 <table class="stmt-meta">
