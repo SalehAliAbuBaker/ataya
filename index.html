@@ -185,8 +185,16 @@
                         <input id="googleClientId" type="text" placeholder="1234567890-xxxx.apps.googleusercontent.com" class="w-full mt-1 p-2 border border-indigo-200 rounded-lg text-[11px]" autocomplete="off">
                     </div>
 
+                    <div class="p-3 bg-amber-50 border border-amber-200 rounded-xl">
+                        <span class="block font-bold text-xs text-amber-900 mb-1">2. نقل السجلات الجديدة بين الأجهزة دون إنترنت:</span>
+                        <p class="text-[11px] text-amber-900 mb-2 leading-relaxed">صدّر ملف JSON من الجهاز الآخر، وانقله عبر البلوتوث أو USB، ثم ادمج السجلات الجديدة هنا. لا تُستبدل السجلات الموجودة، ولا تُنقل عمليات الحذف أو تعديل السجلات الموجودة بهذه الطريقة.</p>
+                        <input type="file" id="offlineMergeInput" accept=".json,application/json" class="hidden" onchange="mergeOfflineFile(event)">
+                        <button type="button" onclick="document.getElementById('offlineMergeInput').click()" class="w-full bg-amber-600 hover:bg-amber-700 text-white font-semibold py-2 rounded-lg text-xs">
+                            📁 دمج ملف عطايا دون إنترنت
+                        </button>
+                    </div>
                     <div class="p-3 bg-emerald-50 border border-emerald-200 rounded-xl">
-                        <span class="block font-bold text-xs text-emerald-900 mb-1">2. استرجاع نسخة سابقة:</span>
+                        <span class="block font-bold text-xs text-emerald-900 mb-1">3. استرجاع نسخة سابقة (استبدال كامل):</span>
                         <input type="file" id="restoreFileInput" accept=".json" class="hidden" onchange="importBackupData(event)">
                         <button type="button" onclick="document.getElementById('restoreFileInput').click()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 rounded-lg text-xs shadow-sm flex items-center justify-center gap-1">
                             📤 استيراد واسترجاع البيانات
@@ -1137,6 +1145,78 @@
                 }
             });
             tokenClient.requestAccessToken({ prompt: '' });
+        }
+
+        // Merge *new* records from another device. Existing IDs are left untouched to
+        // avoid silently overwriting edits; deletions require cloud synchronization.
+        async function mergeOfflineFile(event) {
+            const input = event.target;
+            const file = input.files && input.files[0];
+            if (!file) return;
+            input.value = '';
+            if (!requirePermission('add')) return;
+            if (file.size > 20 * 1024 * 1024) {
+                alert('الملف كبير جداً. الحد الأقصى لهذا الاستيراد 20 ميجابايت.');
+                return;
+            }
+            try {
+                const incoming = JSON.parse(await file.text());
+                if (!['beneficiaries', 'grants', 'distributionLogs'].every(c => Array.isArray(incoming[c]))) {
+                    alert('هذا الملف لا يحتوي على نسخة عطايا صالحة.');
+                    return;
+                }
+                const stats = { beneficiaries: 0, grants: 0, distributionLogs: 0 };
+                const existingNames = new Set(beneficiaries.map(b => normalizeArabic(b.name)));
+                const benIds = new Set(beneficiaries.map(b => String(b.id)));
+                const grantIds = new Set(grants.map(g => String(g.id)));
+                const logIds = new Set(distributionLogs.map(l => String(l.id)));
+                const allocations = new Set(distributionLogs.map(l => String(l.grantId) + '|' + String(l.beneficiaryId)));
+                const additions = { beneficiaries: [], grants: [], distributionLogs: [] };
+
+                for (const record of incoming.beneficiaries) {
+                    if (!record || record.id == null || !record.name) continue;
+                    const n = normalizeArabic(record.name);
+                    if (benIds.has(String(record.id)) || existingNames.has(n)) continue;
+                    const item = { ...record }; delete item._fbKey;
+                    additions.beneficiaries.push(item);
+                    benIds.add(String(item.id)); existingNames.add(n);
+                    stats.beneficiaries++;
+                }
+                for (const record of incoming.grants) {
+                    if (!record || record.id == null || !record.name) continue;
+                    if (grantIds.has(String(record.id))) continue;
+                    const item = { ...record }; delete item._fbKey;
+                    additions.grants.push(item);
+                    grantIds.add(String(item.id)); stats.grants++;
+                }
+                for (const record of incoming.distributionLogs) {
+                    if (!record || record.id == null || record.grantId == null || record.beneficiaryId == null) continue;
+                    const allocation = String(record.grantId) + '|' + String(record.beneficiaryId);
+                    if (logIds.has(String(record.id)) || allocations.has(allocation)) continue;
+                    if (!benIds.has(String(record.beneficiaryId)) || !grantIds.has(String(record.grantId))) continue;
+                    const item = { ...record }; delete item._fbKey;
+                    additions.distributionLogs.push(item);
+                    logIds.add(String(item.id)); allocations.add(allocation);
+                    stats.distributionLogs++;
+                }
+                const total = Object.values(stats).reduce((a, b) => a + b, 0);
+                if (!total) return alert('لا توجد سجلات جديدة يمكن دمجها. لن تتأثر بياناتك الحالية.');
+                if (!confirm('ستتم إضافة ' + stats.beneficiaries + ' مستفيد، و' + stats.grants +
+                             ' عطية، و' + stats.distributionLogs +
+                             ' حركة صرف.\nلن تُحذف السجلات الحالية أو تُستبدل. هل تريد المتابعة؟')) return;
+                beneficiaries.unshift(...additions.beneficiaries);
+                grants.unshift(...additions.grants);
+                distributionLogs.unshift(...additions.distributionLogs);
+                await syncToFirebase();
+                renderBeneficiaries();
+                renderGrants();
+                updateCategoryDropdowns();
+                if (document.getElementById('reportsSection').classList.contains('active-section')) renderFilteredLogs();
+                alert('تم الدمج محلياً بنجاح. ستُرفع السجلات المضافة عند توفر الإنترنت.');
+            } catch (error) {
+                console.error('Offline import error:', error);
+                alert('تعذر قراءة الملف أو دمجه. لم يكتمل الاستيراد.');
+            }
         }
 
         function importBackupData(event) {
