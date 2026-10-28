@@ -1,0 +1,7 @@
+name = "ataya-admin-api"
+main = "worker.js"
+compatibility_date = "2026-10-29"
+workers_dev = true
+
+[vars]
+ALLOWED_ORIGIN = "https://salehaliabubaker.github.io"
