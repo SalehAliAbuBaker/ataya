@@ -977,15 +977,16 @@
         function syncToFirebase() {
             try {
                 window.AtayaOffline.saveLocal({ beneficiaries, grants, distributionLogs });
-                if (!window.fbPush) return Promise.resolve();
-                return window.fbPush().catch(err => {
+                if (!window.fbPush) return Promise.resolve(true);
+                return window.fbPush().then(() => true).catch(err => {
                     console.error('تعذر حفظ التعديلات في قائمة المزامنة:', err);
-                    alert('تعذر حفظ التعديلات محلياً. تحقق من مساحة التخزين في هذا الجهاز.');
+                    alert('تعذر حفظ التعديلات في قائمة المزامنة؛ تحقق من مساحة الجهاز.');
+                    return false;
                 });
             } catch (err) {
                 console.error('تعذر حفظ البيانات محلياً:', err);
                 alert('تعذر حفظ البيانات محلياً؛ قد تكون مساحة المتصفح ممتلئة.');
-                return Promise.resolve();
+                return Promise.resolve(false);
             }
         }
 
@@ -1207,7 +1208,8 @@
                 beneficiaries.unshift(...additions.beneficiaries);
                 grants.unshift(...additions.grants);
                 distributionLogs.unshift(...additions.distributionLogs);
-                await syncToFirebase();
+                const persisted = await syncToFirebase();
+                if (!persisted) return;
                 renderBeneficiaries();
                 renderGrants();
                 updateCategoryDropdowns();
@@ -1237,7 +1239,8 @@
                         grants = parsed.grants;
                         distributionLogs = parsed.distributionLogs;
 
-                        syncToFirebase().then(() => {
+                        syncToFirebase().then(saved => {
+                            if (!saved) return;
                             alert('تم استرجاع البيانات محلياً. ستُزامَن مع السحابة عند توفر الاتصال.');
                             closeBackupModal();
                             location.reload();
