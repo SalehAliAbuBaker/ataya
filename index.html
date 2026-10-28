@@ -164,6 +164,11 @@
                     ☁️️ النسخ
                 </button>
 
+                <button type="button" id="atayaContactTrigger" onclick="openAtayaContact()" aria-haspopup="dialog" aria-controls="atayaContactModal"
+                    class="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 py-1.5 rounded-lg border border-emerald-400 flex items-center gap-1 shadow-sm transition">
+                    💬 تواصل معنا
+                </button>
+
                 <button type="button" onclick="logoutUser()" title="تسجيل الخروج" class="text-xs bg-rose-600 hover:bg-rose-700 px-2 py-1.5 rounded-lg border border-rose-400 flex items-center gap-1 shadow-sm transition">
                     خروج 🚪
                 </button>
@@ -2917,10 +2922,6 @@
     <script src="./voice-input.js?v=1"></script>
 
     <!-- WhatsApp feedback: opens a prefilled message; user confirms sending in WhatsApp. -->
-    <button type="button" id="atayaContactTrigger" onclick="openAtayaContact()" aria-haspopup="dialog" aria-controls="atayaContactModal"
-        class="fixed bottom-5 left-4 z-40 flex items-center gap-2 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-3 shadow-lg border border-emerald-500 font-bold text-sm">
-        <span aria-hidden="true">💬</span> تواصل معنا
-    </button>
     <div id="atayaContactModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/60 p-4" role="dialog" aria-modal="true" aria-labelledby="atayaContactTitle" onclick="if(event.target===this) closeAtayaContact()">
         <div class="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl" dir="rtl">
             <div class="flex items-center justify-between gap-3 mb-3">
