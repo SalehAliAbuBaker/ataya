@@ -9,6 +9,11 @@
     <link rel="icon" type="image/png" href="icon.png">
     <link rel="apple-touch-icon" href="icon.png">
     <link rel="manifest" href="manifest.json">
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('./service-worker.js').catch(error => console.warn('Offline setup:', error));
+        }
+    </script>
     <meta name="theme-color" content="#4338ca">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -77,7 +82,7 @@
                 const bad = ['auth/invalid-credential', 'auth/wrong-password', 'auth/user-not-found', 'auth/invalid-email'];
                 err.textContent = bad.includes(ex.code) ? 'اسم المستخدم أو كلمة المرور غير صحيحة.'
                                 : ex.code === 'auth/too-many-requests' ? 'محاولات كثيرة، حاول لاحقاً.'
-                                : 'تعذر الاتصال، تحقق من الإنترنت.';
+                                : 'تعذر الاتصال. يلزم الإنترنت لتسجيل الدخول أول مرة؛ بعدها يمكن الدخول دون اتصال على الجهاز نفسه ما دامت الجلسة محفوظة.';
                 err.classList.remove('hidden');
                 btn.disabled = false;
             }
