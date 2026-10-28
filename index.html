@@ -777,6 +777,9 @@
                 refreshBadge();
             });
             onValue(rootRef, snapshot => {
+                // RTDB may emit speculative local events; only accept a confirmed connection
+                // as the new server baseline, to protect saved offline edits.
+                if (!connected) { refreshBadge(); return; }
                 const rootData = snapshot.val() || {};
                 offline.savePermissions(rootData.permissions || {});
                 window.permissionSnapshotLoaded = true;
