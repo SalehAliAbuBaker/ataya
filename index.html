@@ -283,7 +283,10 @@
                     <span class="text-indigo-600 text-[11px]">يتجاهل الأسماء المكررة والهمزات تلقائياً</span>
                 </div>
                 <input type="file" id="excelFile" accept=".xlsx, .xls, .csv" class="hidden" onchange="importExcel(event)">
-                <button type="button" data-permission="add" onclick="document.getElementById('excelFile').click()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-lg font-semibold shadow-xs">رفع ملف إكسل</button>
+                <div class="flex flex-wrap gap-2 justify-end">
+                    <button type="button" onclick="downloadExcelTemplate()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg font-semibold shadow-xs">⬇ تنزيل نموذج Excel</button>
+                    <button type="button" data-permission="add" onclick="document.getElementById('excelFile').click()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-lg font-semibold shadow-xs">رفع ملف إكسل</button>
+                </div>
             </div>
 
             <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 mb-4">
@@ -1455,6 +1458,17 @@
                 }
             };
             reader.readAsText(file);
+        }
+
+        // Download the same six-column layout consumed by importExcel().
+        function downloadExcelTemplate() {
+            if (typeof XLSX === 'undefined') return alert('مكتبة Excel غير متاحة حاليًا. تحقق من الاتصال بالإنترنت.');
+            const columns = ['اسم المستفيد', 'المنطقة', 'رقم الهاتف', 'عدد أفراد الأسرة', 'نسبة الاحتياج', 'الفئة'];
+            const ws = XLSX.utils.aoa_to_sheet([columns]);
+            ws['!cols'] = [{wch: 30}, {wch: 20}, {wch: 18}, {wch: 20}, {wch: 18}, {wch: 20}];
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'المستفيدون');
+            XLSX.writeFile(wb, 'نموذج_رفع_المستفيدين_سجل_العطايا.xlsx');
         }
 
         // ================= استيراد الإكسل =================
