@@ -190,7 +190,8 @@
                 <p class="text-amber-800 leading-6">أنشئ مستخدمًا جديدًا من هنا باسم دخول وكلمة مرور وصلاحياته. سيُنشأ حسابه في Firebase Authentication وتُربط صلاحياته بقاعدة Ataya Data. يلزم الإنترنت أثناء إنشاء الحساب.</p>
             </div>
             <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 mb-4">
-                <form onsubmit="saveUserPermission(event)" class="space-y-3">
+                <form id="permissionForm" onsubmit="saveUserPermission(event)" class="space-y-3">
+                    <p id="permissionEditNotice" class="hidden text-xs text-indigo-800 bg-indigo-50 border border-indigo-200 p-2 rounded-lg">أنت تعدّل صلاحيات مستخدم موجود. احفظ التعديل دون تغيير كلمة المرور.</p>
                     <div>
                         <label class="block text-xs font-semibold mb-1">البريد أو اسم المستخدم</label>
                         <input id="permissionEmail" type="text" required dir="ltr" placeholder="ahmed أو ahmed@example.com" class="w-full p-2 border border-slate-300 rounded-lg text-sm">
@@ -209,13 +210,15 @@
                         <label class="flex items-center gap-2"><input id="permissionView" type="checkbox" checked class="w-4 h-4"> الاطلاع على البيانات</label>
                         <label class="flex items-center gap-2"><input id="permissionAdd" type="checkbox" class="w-4 h-4"> الإضافة</label>
                         <label class="flex items-center gap-2 text-indigo-700"><input id="permissionReports" type="checkbox" class="w-4 h-4"> عرض التقارير والكشوفات</label>
-                        <label class="flex items-center gap-2"><input id="permissionEdit" type="checkbox" class="w-4 h-4"> التعديل والحذف</label>
+                        <label class="flex items-center gap-2"><input id="permissionEdit" type="checkbox" class="w-4 h-4"> تعديل البيانات</label>
+                        <label class="flex items-center gap-2 text-rose-700"><input id="permissionDelete" type="checkbox" class="w-4 h-4"> حذف البيانات</label>
                         <label class="flex items-center gap-2 text-amber-700"><input id="permissionAdmin" type="checkbox" class="w-4 h-4"> مدير صلاحيات</label>
                     </div>
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        <button type="submit" name="permissionAction" value="create" class="bg-amber-600 hover:bg-amber-700 text-white font-semibold py-2.5 rounded-lg">إنشاء المستخدم وكلمة المرور</button>
-                        <button type="submit" name="permissionAction" value="existing" class="border border-amber-300 text-amber-900 bg-amber-50 font-semibold py-2.5 rounded-lg">حفظ صلاحيات حساب موجود</button>
+                        <button id="permissionCreateBtn" type="submit" name="permissionAction" value="create" class="bg-amber-600 hover:bg-amber-700 text-white font-semibold py-2.5 rounded-lg">إنشاء المستخدم وكلمة المرور</button>
+                        <button id="permissionSaveBtn" type="submit" name="permissionAction" value="existing" class="border border-amber-300 text-amber-900 bg-amber-50 font-semibold py-2.5 rounded-lg">حفظ صلاحيات حساب موجود</button>
                     </div>
+                    <button type="button" id="permissionCancelEdit" onclick="cancelEditUserPermission()" class="hidden text-xs text-slate-600 hover:text-indigo-700 underline">إلغاء تعديل المستخدم</button>
                     <p class="text-xs text-slate-500">كلمات المرور لا تُحفظ في قاعدة بيانات العطايا. إنشاء الحسابات يتطلب الإنترنت.</p>
                 </form>
             </div>
@@ -597,7 +600,7 @@
                 <button type="button" onclick="copyStatementText()" class="bg-indigo-600 text-white py-2 rounded-lg">📋 نسخ نص</button>
                 <button type="button" onclick="whatsappStatement()" class="bg-teal-600 text-white py-2 rounded-lg">💬 واتساب</button>
                 <button type="button" data-permission="add" onclick="openAddLogFromStatement()" class="bg-indigo-50 border border-indigo-300 text-indigo-700 py-2 rounded-lg">➕ إضافة مستفيد</button>
-                <button type="button" data-permission="edit" onclick="askDeleteStatement()" class="bg-white border border-rose-300 text-rose-600 py-2 rounded-lg">🗑 حذف الكشف</button>
+                <button type="button" data-permission="delete" onclick="askDeleteStatement()" class="bg-white border border-rose-300 text-rose-600 py-2 rounded-lg">🗑 حذف الكشف</button>
                 <button type="button" onclick="closeStatement()" class="bg-slate-100 border border-slate-300 text-slate-700 py-2 rounded-lg">✕ إغلاق</button>
             </div>
             <p id="stmtBusy" class="hidden text-center text-[11px] text-indigo-700 mt-1">جارٍ تجهيز الملف...</p>
@@ -911,21 +914,33 @@
         let customQuotas = {};
 
         let permissionRecords = {};
-        let permissionState = { view: true, add: false, edit: false, reports: false, admin: false, bootstrap: false };
+        let permissionState = { view: true, add: false, edit: false, delete: false, reports: false, admin: false, bootstrap: false };
         const permissionKey = value => String(value || '').trim().toLowerCase().replace(/[.#$\[\]\/]/g, '_').replace(/@/g, '_at_');
         const normalizePermissionEmail = value => { const v = String(value || '').trim().toLowerCase(); return v.includes('@') ? v : `${v}@ataya.local`; };
         function currentPermission() {
             const email = window.currentUserEmail || '';
             const all = Object.values(window.fbPermissionRecords || {});
             const record = (window.fbPermissionRecords || {})[permissionKey(email)] || all.find(x => String(x.email || '').toLowerCase() === email);
-            if (record) return { view: record.view !== false, add: record.add === true, edit: record.edit === true, reports: record.reports === true, admin: record.admin === true };
+            if (record) return {
+                view: record.view !== false, add: record.add === true, edit: record.edit === true,
+                // Legacy permission records used "edit" for both edit and delete.
+                delete: record.delete === true || (record.delete == null && record.edit === true),
+                reports: record.reports === true, admin: record.admin === true
+            };
             const hasAdmin = all.some(x => x.admin === true);
-            if (!window.permissionSnapshotLoaded) return { view: false, add: false, edit: false, reports: false, admin: false, bootstrap: false };
+            if (!window.permissionSnapshotLoaded) return { view: false, add: false, edit: false, delete: false, reports: false, admin: false, bootstrap: false };
             const bootstrap = !all.length || !hasAdmin;
-            return { view: true, add: bootstrap, edit: bootstrap, reports: bootstrap, admin: bootstrap, bootstrap };
+            return { view: true, add: bootstrap, edit: bootstrap, delete: bootstrap, reports: bootstrap, admin: bootstrap, bootstrap };
         }
         function can(action) { const p = permissionState; return action === 'view' ? p.view : p.admin || p[action] === true; }
-        function requirePermission(action) { if (can(action)) return true; alert(action === 'add' ? 'ليس لديك صلاحية الإضافة.' : action === 'edit' ? 'ليس لديك صلاحية التعديل أو الحذف.' : 'ليس لديك صلاحية الاطلاع.'); return false; }
+        function requirePermission(action) {
+            if (can(action)) return true;
+            alert(action === 'add' ? 'ليس لديك صلاحية الإضافة.'
+                : action === 'edit' ? 'ليس لديك صلاحية تعديل البيانات.'
+                : action === 'delete' ? 'ليس لديك صلاحية حذف البيانات.'
+                : 'ليس لديك صلاحية الاطلاع.');
+            return false;
+        }
         window.setPermissionRecords = records => { window.fbPermissionRecords = records || {}; permissionRecords = window.fbPermissionRecords; permissionState = currentPermission(); applyPermissionUI(); renderPermissions(); };
 
         function applyPermissionUI() {
@@ -962,13 +977,47 @@
             const list = document.getElementById('permissionsList'); if (!list) return;
             if (!permissionState.admin) { list.innerHTML = ''; return; }
             const rows = Object.values(window.fbPermissionRecords || {});
-            list.innerHTML = rows.length ? rows.map(r => `<div class="flex flex-wrap justify-between items-center gap-2 p-2 rounded-lg bg-slate-50 border border-slate-200 text-xs"><b dir="ltr">${r.email}</b><span>${r.admin ? 'مدير' : [r.view?'اطلاع بيانات':'',r.add?'إضافة':'',r.edit?'تعديل':'',r.reports?'تقارير وكشوفات':''].filter(Boolean).join('، ') || 'بدون صلاحيات'}</span><button type="button" onclick="removeUserPermission('${permissionKey(r.email)}')" class="text-rose-600 hover:underline">حذف</button></div>`).join('') : '<p class="text-xs text-slate-400">لا توجد صلاحيات مضافة بعد.</p>';
+            list.innerHTML = rows.length ? rows.map(r => `<div class="flex flex-wrap justify-between items-center gap-2 p-2 rounded-lg bg-slate-50 border border-slate-200 text-xs"><b dir="ltr">${r.email}</b><span>${r.admin ? 'مدير' : [r.view?'اطلاع بيانات':'',r.add?'إضافة':'',r.edit?'تعديل':'',(r.delete === true || (r.delete == null && r.edit === true))?'حذف':'',r.reports?'تقارير وكشوفات':''].filter(Boolean).join('، ') || 'بدون صلاحيات'}</span><div class="flex gap-3"><button type="button" onclick="editUserPermission('${permissionKey(r.email)}')" class="text-indigo-700 hover:underline">تعديل الصلاحيات</button><button type="button" onclick="removeUserPermission('${permissionKey(r.email)}')" class="text-rose-600 hover:underline">حذف الصلاحيات</button></div></div>`).join('') : '<p class="text-xs text-slate-400">لا توجد صلاحيات مضافة بعد.</p>';
+        }
+        function cancelEditUserPermission() {
+            const form = document.getElementById('permissionForm');
+            if (!form) return;
+            form.dataset.editing = '';
+            form.reset();
+            document.getElementById('permissionView').checked = true;
+            document.getElementById('permissionCreateBtn').classList.remove('hidden');
+            document.getElementById('permissionSaveBtn').textContent = 'حفظ صلاحيات حساب موجود';
+            document.getElementById('permissionEditNotice').classList.add('hidden');
+            document.getElementById('permissionCancelEdit').classList.add('hidden');
+            document.getElementById('permissionEmail').readOnly = false;
+        }
+        function editUserPermission(k) {
+            if (!permissionState.admin) return alert('هذه العملية متاحة لمدير الصلاحيات فقط.');
+            const record = (window.fbPermissionRecords || {})[k];
+            if (!record || !record.email) return alert('لم يتم العثور على هذا المستخدم.');
+            const form = document.getElementById('permissionForm');
+            form.dataset.editing = 'true';
+            document.getElementById('permissionEmail').value = record.email;
+            document.getElementById('permissionEmail').readOnly = true;
+            document.getElementById('permissionView').checked = record.view !== false;
+            document.getElementById('permissionAdd').checked = record.add === true;
+            document.getElementById('permissionEdit').checked = record.edit === true;
+            document.getElementById('permissionDelete').checked = record.delete === true || (record.delete == null && record.edit === true);
+            document.getElementById('permissionReports').checked = record.reports === true;
+            document.getElementById('permissionAdmin').checked = record.admin === true;
+            document.getElementById('permissionPassword').value = '';
+            document.getElementById('permissionPasswordConfirm').value = '';
+            document.getElementById('permissionCreateBtn').classList.add('hidden');
+            document.getElementById('permissionSaveBtn').textContent = 'حفظ تعديل الصلاحيات';
+            document.getElementById('permissionEditNotice').classList.remove('hidden');
+            document.getElementById('permissionCancelEdit').classList.remove('hidden');
+            form.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
         async function saveUserPermission(e) {
             e.preventDefault();
             if (!permissionState.admin) return alert('إدارة المستخدمين متاحة لمدير الصلاحيات فقط.');
             const form = e.currentTarget;
-            const create = e.submitter?.value !== 'existing';
+            const create = form.dataset.editing !== 'true' && e.submitter?.value !== 'existing';
             const raw = document.getElementById('permissionEmail').value.trim();
             if (!raw) return alert('أدخل اسم المستخدم أو البريد الإلكتروني.');
             const email = normalizePermissionEmail(raw);
@@ -985,6 +1034,7 @@
                 email, view: document.getElementById('permissionView').checked,
                 add: document.getElementById('permissionAdd').checked,
                 edit: document.getElementById('permissionEdit').checked,
+                delete: document.getElementById('permissionDelete').checked,
                 admin: document.getElementById('permissionAdmin').checked,
                 reports: document.getElementById('permissionReports').checked,
                 updatedBy: loggedUser, updatedAt: new Date().toISOString()
@@ -994,7 +1044,7 @@
             if (permissionState.bootstrap && window.currentUserEmail) {
                 updates['permissions/' + permissionKey(window.currentUserEmail)] = {
                     email: window.currentUserEmail, uid: window.currentUserUid,
-                    view: true, add: true, edit: true, reports: true, admin: true,
+                    view: true, add: true, edit: true, delete: true, reports: true, admin: true,
                     updatedBy: loggedUser, updatedAt: new Date().toISOString()
                 };
             }
@@ -1009,8 +1059,7 @@
                     await window.fbPermissionUpdate(updates);
                     alert('تم حفظ صلاحيات الحساب الموجود. لم تتغير كلمة مروره.');
                 }
-                form.reset();
-                document.getElementById('permissionView').checked = true;
+                cancelEditUserPermission();
             } catch (error) {
                 console.error('Ataya user management:', error);
                 const errors = {
@@ -1273,7 +1322,7 @@
         }
 
         function importBackupData(event) {
-            if (!requirePermission("edit")) return;
+            if (!requirePermission("edit") || !requirePermission("delete")) return;
             const file = event.target.files[0];
             if (!file) return;
 
@@ -1463,7 +1512,7 @@
         }
 
         function deleteBeneficiary(id) {
-            if (!requirePermission("edit")) return;
+            if (!requirePermission("delete")) return;
             if (!confirm('هل أنت متأكد من حذف هذا المستفيد؟ سيتم أيضاً إزالته من كشوفات العطايا المرتبطة.')) return;
             beneficiaries = beneficiaries.filter(b => String(b.id) !== String(id));
             distributionLogs = distributionLogs.filter(l => String(l.beneficiaryId) !== String(id));
@@ -1504,8 +1553,8 @@
                     </div>
                     <div class="flex items-center gap-2">
                         <span class="bg-slate-200 text-slate-700 px-2 py-0.5 rounded text-[10px]">${b.category}</span>
-                        ${can('edit') ? `<button type="button" onclick="editBeneficiary('${b.id}')" class="text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-2 py-1 rounded text-[11px] font-semibold">تعديل</button>
-                        <button type="button" onclick="deleteBeneficiary('${b.id}')" class="text-rose-600 bg-rose-50 hover:bg-rose-100 px-2 py-1 rounded text-[11px] font-semibold">حذف</button>` : ''}
+                        ${can('edit') ? `<button type="button" onclick="editBeneficiary('${b.id}')" class="text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-2 py-1 rounded text-[11px] font-semibold">تعديل</button>` : ''}
+                        ${can('delete') ? `<button type="button" onclick="deleteBeneficiary('${b.id}')" class="text-rose-600 bg-rose-50 hover:bg-rose-100 px-2 py-1 rounded text-[11px] font-semibold">حذف</button>` : ''}
                     </div>
                 </div>
             `).join('');
@@ -1627,7 +1676,7 @@
         }
 
         function deleteGrant(id) {
-            if (!requirePermission("edit")) return;
+            if (!requirePermission("delete")) return;
             if (!confirm('حذف هذه العطية لا يحذف سجلات الصرف السابقة. هل ترغب بالاستمرار؟')) return;
             grants = grants.filter(g => String(g.id) !== String(id));
             syncToFirebase();
@@ -1653,8 +1702,8 @@
                     </div>
                     <div class="flex items-center gap-2">
                         <span class="bg-indigo-50 text-indigo-700 px-2 py-1 rounded font-semibold">الاستحقاق: ${g.defaultQuota}</span>
-                        ${can('edit') ? `<button type="button" onclick="editGrant('${g.id}')" class="text-indigo-600 hover:underline">تعديل</button>
-                        <button type="button" onclick="deleteGrant('${g.id}')" class="text-rose-600 hover:underline">حذف</button>` : ''}
+                        ${can('edit') ? `<button type="button" onclick="editGrant('${g.id}')" class="text-indigo-600 hover:underline">تعديل</button>` : ''}
+                        ${can('delete') ? `<button type="button" onclick="deleteGrant('${g.id}')" class="text-rose-600 hover:underline">حذف</button>` : ''}
                     </div>
                 </div>
             `}).join('');
@@ -2029,8 +2078,8 @@
                         <td class="p-2 text-center text-slate-600 font-medium text-[11px]"><span class="bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded border border-indigo-100">${creator}</span></td>
                         <td class="p-2 text-slate-400 text-[10px]">${log.timestamp}</td>
                         <td class="p-2 text-center no-print">
-                            ${can('edit') ? `<button type="button" onclick="editLogAmount('${log.id}')" class="text-indigo-600 hover:underline mx-1">تعديل</button>
-                            <button type="button" onclick="deleteLog('${log.id}')" class="text-rose-600 hover:underline mx-1">إلغاء</button>` : ''}
+                            ${can('edit') ? `<button type="button" onclick="editLogAmount('${log.id}')" class="text-indigo-600 hover:underline mx-1">تعديل</button>` : ''}
+                            ${can('delete') ? `<button type="button" onclick="deleteLog('${log.id}')" class="text-rose-600 hover:underline mx-1">إلغاء</button>` : ''}
                         </td>
                     </tr>
                 `;
@@ -2051,7 +2100,7 @@
         }
 
         function deleteLog(logId) {
-            if (!requirePermission("edit")) return;
+            if (!requirePermission("delete")) return;
             const target = distributionLogs.find(l => String(l.id) === String(logId));
             if (!target) return;
             const ben = beneficiaries.find(b => String(b.id) === String(target.beneficiaryId));
@@ -2068,7 +2117,7 @@
         }
 
         function removeBeneficiaryFromStatement(grantId, benId) {
-            if (!requirePermission("edit")) return;
+            if (!requirePermission("delete")) return;
             const ben = beneficiaries.find(b => String(b.id) === String(benId));
             if (!confirm(`هل تريد حذف (${ben ? ben.name : 'هذا المستفيد'}) من هذا الكشف؟`)) return;
             distributionLogs = distributionLogs.filter(l =>
@@ -2388,7 +2437,7 @@
         }
 
         function getStmtThead(d, forExport = false) {
-            const actCol = (!forExport && can('edit')) ? `<th class="no-print" style="width:10%">إجراء</th>` : '';
+            const actCol = (!forExport && (can('edit') || can('delete'))) ? `<th class="no-print" style="width:10%">إجراء</th>` : '';
             if (d.hasMoney) {
                 return `<thead><tr>
                     <th style="width:5%">م</th>
@@ -2409,10 +2458,10 @@
         }
 
         function statementRowHTML(r, i, d, forExport = false) {
-            const actCell = (!forExport && can('edit'))
+            const actCell = (!forExport && (can('edit') || can('delete')))
                 ? `<td class="c no-print" style="white-space:nowrap">
-                    <button type="button" onclick="editBeneficiaryInStatement('${d.grant.id}','${r.ben.id}')" class="text-indigo-600 hover:underline text-[11px] mx-0.5">تعديل</button>
-                    <button type="button" onclick="removeBeneficiaryFromStatement('${d.grant.id}','${r.ben.id}')" class="text-rose-600 hover:underline text-[11px] mx-0.5">حذف</button>
+                    ${can('edit') ? `<button type="button" onclick="editBeneficiaryInStatement('${d.grant.id}','${r.ben.id}')" class="text-indigo-600 hover:underline text-[11px] mx-0.5">تعديل</button>` : ''}
+                    ${can('delete') ? `<button type="button" onclick="removeBeneficiaryFromStatement('${d.grant.id}','${r.ben.id}')" class="text-rose-600 hover:underline text-[11px] mx-0.5">حذف</button>` : ''}
                    </td>`
                 : '';
             if (d.hasMoney) {
@@ -2469,7 +2518,7 @@
         }
 
         function statementTfootHTML(d, forExport = false) {
-            const extraTd = (!forExport && can('edit')) ? `<td class="no-print"></td>` : '';
+            const extraTd = (!forExport && (can('edit') || can('delete'))) ? `<td class="no-print"></td>` : '';
             if (d.hasMoney) {
                 return `<tr>
                     <td colspan="2">إجمالي عدد المستفيدين: ${d.count}</td>
@@ -2493,7 +2542,7 @@
             const MAX_CONTENT_H = 975;
             const GAP = 14, SIGN_GAP = 26;
             const theadHtml = getStmtThead(d, forExport);
-            const hasActCol = !forExport && can('edit');
+            const hasActCol = !forExport && (can('edit') || can('delete'));
             const colSpanCount = (d.hasMoney ? 7 : 6) + (hasActCol ? 1 : 0);
             const rowsHtml = d.rows.length
                 ? d.rows.map((r, i) => statementRowHTML(r, i, d, forExport))
@@ -2604,7 +2653,7 @@
                     </div>
                     <div class="flex gap-2 mt-2">
                         <button type="button" onclick="openStatement('${g.id}')" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-1.5 rounded-lg text-xs font-semibold">عرض الكشف</button>
-                        ${can('edit') ? `<button type="button" onclick="askDeleteStatement('${g.id}')" class="px-3 border border-rose-300 text-rose-600 hover:bg-rose-50 rounded-lg text-xs">حذف</button>` : ''}
+                        ${can('delete') ? `<button type="button" onclick="askDeleteStatement('${g.id}')" class="px-3 border border-rose-300 text-rose-600 hover:bg-rose-50 rounded-lg text-xs">حذف</button>` : ''}
                     </div>
                 </div>`;
             }).join('');
@@ -2746,7 +2795,7 @@
 
         // ================= حذف الكشف =================
         function askDeleteStatement(id) {
-            if (!requirePermission("edit")) return;
+            if (!requirePermission("delete")) return;
             pendingDeleteGrantId = id || currentStatementId;
             const d = buildStatementData(pendingDeleteGrantId);
             if (!d) return;
@@ -2767,7 +2816,7 @@
         }
 
         async function confirmDeleteStatement() {
-            if (!requirePermission("edit")) return;
+            if (!requirePermission("delete")) return;
             const id = pendingDeleteGrantId;
             if (!id) return;
             const mode = document.querySelector('input[name="delStmtMode"]:checked')?.value || 'logs_only';
