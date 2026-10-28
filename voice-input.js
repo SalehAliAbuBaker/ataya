@@ -13,6 +13,7 @@
     ];
     let active = null;
     let localArabicAvailable = false;
+    let remoteVoiceApproved = false;
 
     // Prefer local recognition when the browser already has an Arabic language pack.
     if (Engine && typeof Engine.available === "function") {
@@ -38,7 +39,7 @@
                 const n = "٠١٢٣٤٥٦٧٨٩".indexOf(c);
                 return n < 0 ? String("۰۱۲۳۴۵۶۷۸۹".indexOf(c)) : String(n);
             })
-            .replace(/[٫،,]/g, ".")
+            .replace(/٫/g, ".").replace(/[،,]/g, " ")
             .replace(/\s+/g, " ");
         if (/^[0-9 +.()-]+$/.test(normalized)) {
             return normalized.replace(/\s/g, "");
@@ -53,6 +54,8 @@
         const status = document.getElementById("atayaVoiceStatus");
         if (!status) return;
         status.textContent = message;
+        const shown = message;
+        setTimeout(() => { if (status.textContent === shown) status.textContent = ""; }, 6000);
     }
 
     function labelFor(field) {
@@ -85,7 +88,10 @@
                 field.value = value;
             }
         } else {
-            const before = field.value || "";
+            const replaceQuery = ["benCategory", "searchBen", "distSearchInput",
+                "filterReportSearchName", "repAddBenSearch",
+                "atayaCategorySearchDist", "atayaCategorySearchReport"].includes(field.id);
+            const before = replaceQuery ? "" : (field.value || "");
             field.value = before ? before.trimEnd() + " " + value : value;
         }
         field.dispatchEvent(new Event("input", { bubbles: true }));
@@ -106,6 +112,11 @@
             if (wasSame) return;
         }
         if (field.disabled || field.readOnly) return;
+        if (!localArabicAvailable && !remoteVoiceApproved) {
+            const permitted = confirm("الإملاء الصوتي قد يستخدم خدمة تعرف صوتي على الإنترنت تابعة للمتصفح، وقد تُرسل الكلمات المنطوقة إليها. لا تُملِ بيانات سرية أو حساسة. هل تريد تشغيل الميكروفون؟");
+            if (!permitted) return;
+            remoteVoiceApproved = true;
+        }
         let recognition;
         try {
             recognition = new Engine();
@@ -158,6 +169,8 @@
         if (!parent) return;
         const wrapper = document.createElement("div");
         wrapper.className = "ataya-voice-wrapper";
+        if (field.id === "searchBen") wrapper.classList.add("ataya-voice-inline");
+        if (field.tagName === "TEXTAREA") wrapper.classList.add("ataya-voice-multiline");
         parent.insertBefore(wrapper, field);
         wrapper.appendChild(field);
         field.classList.add("ataya-voice-input");
