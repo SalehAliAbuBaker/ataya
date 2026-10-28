@@ -704,7 +704,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
         import { getDatabase, ref, update, onValue, get } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
-        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+        import { getAuth, onAuthStateChanged, signOut, getIdToken } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
         import { createAtayaUser } from "./user-provisioning.js";
 
         const firebaseConfig = {
@@ -721,6 +721,10 @@
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
         const auth = getAuth(app);
+        // Public HTTPS Worker URL only, never Firebase service-account credentials.
+        // Account deletion stays unavailable until the trusted admin endpoint is deployed.
+        const ACCOUNT_DELETE_API = '';
+        window.fbAccountDeletionReady = Boolean(ACCOUNT_DELETE_API);
 
         const ROOT = 'atp_v2';
         const OLD = 'atp_data';
@@ -761,6 +765,22 @@
         window.fbPermissionUpdate = updates => {
             if (!connected) return Promise.reject(new Error('يلزم الاتصال بالإنترنت لتعديل الصلاحيات'));
             return update(ref(db, ROOT), updates);
+        };
+        window.fbDeleteAtayaAccount = async ({email, confirmation}) => {
+            if (!ACCOUNT_DELETE_API) throw new Error('حذف الحساب النهائي غير مفعل بعد. يجب ربط خدمة الإدارة الآمنة أولًا.');
+            if (!connected) throw new Error('حذف الحساب النهائي يحتاج إلى اتصال بالإنترنت.');
+            if (!auth.currentUser) throw new Error('يجب تسجيل الدخول بحساب مدير الصلاحيات.');
+            const idToken = await getIdToken(auth.currentUser, true);
+            const response = await fetch(ACCOUNT_DELETE_API.replace(/\/$/, '') + '/users/delete', {
+                method: 'POST', cache: 'no-store',
+                headers: { 'content-type': 'application/json', authorization: 'Bearer ' + idToken },
+                body: JSON.stringify({ email, confirmEmail: confirmation })
+            });
+            let result;
+            try { result = await response.json(); }
+            catch (_) { throw new Error('استجابة خدمة حذف الحساب غير مفهومة. تحقق من الاتصال بالخدمة.'); }
+            if (!response.ok && !result.accountDeleted) throw new Error(result.error || 'تعذر حذف الحساب من Firebase.');
+            return result;
         };
         window.fbCreateAtayaUser = options => {
             if (!connected) return Promise.reject(new Error('إنشاء المستخدم يتطلب اتصالًا بالإنترنت.'));
@@ -980,8 +1000,39 @@
             const list = document.getElementById('permissionsList'); if (!list) return;
             if (!permissionState.admin) { list.innerHTML = ''; return; }
             const rows = Object.values(window.fbPermissionRecords || {});
-            list.innerHTML = rows.length ? rows.map(r => `<div class="flex flex-wrap justify-between items-center gap-2 p-2 rounded-lg bg-slate-50 border border-slate-200 text-xs"><b dir="ltr">${r.email}</b><span>${r.admin ? 'مدير' : [r.view?'اطلاع بيانات':'',r.add?'إضافة':'',r.edit?'تعديل':'',(r.delete === true || (r.delete == null && r.edit === true))?'حذف':'',r.reports?'تقارير وكشوفات':''].filter(Boolean).join('، ') || 'بدون صلاحيات'}</span><div class="flex gap-3"><button type="button" onclick="editUserPermission('${permissionKey(r.email)}')" class="text-indigo-700 hover:underline">تعديل الصلاحيات</button><button type="button" onclick="removeUserPermission('${permissionKey(r.email)}')" class="text-rose-600 hover:underline">حذف الصلاحيات</button></div></div>`).join('') : '<p class="text-xs text-slate-400">لا توجد صلاحيات مضافة بعد.</p>';
+            list.innerHTML = rows.length ? rows.map(r => `<div class="flex flex-wrap justify-between items-center gap-2 p-2 rounded-lg bg-slate-50 border border-slate-200 text-xs"><b dir="ltr">${r.email}</b><span>${r.admin ? 'مدير' : [r.view?'اطلاع بيانات':'',r.add?'إضافة':'',r.edit?'تعديل':'',(r.delete === true || (r.delete == null && r.edit === true))?'حذف':'',r.reports?'تقارير وكشوفات':''].filter(Boolean).join('، ') || 'بدون صلاحيات'}</span><div class="flex gap-3"><button type="button" onclick="editUserPermission('${permissionKey(r.email)}')" class="text-indigo-700 hover:underline">تعديل الصلاحيات</button><button type="button" onclick="removeUserPermission('${permissionKey(r.email)}')" class="text-rose-600 hover:underline">حذف الصلاحيات</button><button type="button" onclick="deleteAtayaAccount('${permissionKey(r.email)}')" class="text-rose-800 border border-rose-300 bg-rose-50 hover:bg-rose-100 px-2 py-1 rounded" title="حذف حساب الدخول نهائيًا من Firebase Authentication؛ يتطلب خدمة إدارية آمنة">حذف الحساب نهائيًا${window.fbAccountDeletionReady ? '' : ' 🔒'}</button></div></div>`).join('') : '<p class="text-xs text-slate-400">لا توجد صلاحيات مضافة بعد.</p>';
         }
+        async function deleteAtayaAccount(k) {
+            if (!permissionState.admin) return alert('هذه العملية متاحة لمدير الصلاحيات فقط.');
+            const record = (window.fbPermissionRecords || {})[k];
+            if (!record || !record.email) return alert('لم يتم العثور على هذا المستخدم.');
+            const email = String(record.email).trim().toLowerCase();
+            if (email === window.currentUserEmail || record.uid && record.uid === window.currentUserUid)
+                return alert('لا يمكن حذف حساب المدير المستخدم حاليًا.');
+            if (!window.fbAccountDeletionReady)
+                return alert('خيار الحذف النهائي أُضيف إلى التطبيق، لكنه غير مفعّل حتى نربط خدمة حذف الحسابات الآمنة. لا تحذف الصلاحيات بدلًا منه، لأن ذلك لا يحذف حساب الدخول.');
+            const all = Object.values(window.fbPermissionRecords || {});
+            if (record.admin && all.filter(r => r && r.admin === true).length <= 1)
+                return alert('لا يمكن حذف آخر حساب مدير صلاحيات.');
+            if (!confirm('سيُحذف حساب الدخول للمستخدم ' + email + ' نهائيًا من Firebase Authentication، وسيُزال سجل صلاحياته فقط. ستبقى بيانات المستفيدين والعطايا وحركات الصرف محفوظة. هل تريد المتابعة؟')) return;
+            const typed = prompt('للتأكيد النهائي، اكتب اسم الدخول التالي كما هو:\n' + email);
+            if (typed === null) return;
+            if (typed.trim().toLowerCase() !== email) return alert('اسم الحساب غير مطابق؛ لم يُنفّذ أي حذف.');
+            const controls = [...document.querySelectorAll('#permissionsList button')];
+            controls.forEach(btn => btn.disabled = true);
+            try {
+                const result = await window.fbDeleteAtayaAccount({email, confirmation: typed.trim().toLowerCase()});
+                if (result.accountDeleted && result.permissionsRemoved)
+                    alert('تم حذف حساب المستخدم نهائيًا من Firebase Authentication وإزالة صلاحياته. بيانات المستفيدين والعطايا محفوظة.');
+                else if (result.accountDeleted)
+                    alert(result.warning || 'حُذف حساب الدخول، لكن لم تُزل صلاحياته من قاعدة البيانات. يلزم مراجعتها.');
+                else alert('لم يؤكد الخادم حذف الحساب؛ لم تُعرض رسالة نجاح.');
+            } catch (err) {
+                console.error('Ataya account deletion:', err);
+                alert(err.message || 'تعذر حذف الحساب النهائي. لم تُؤكد العملية.');
+            } finally { controls.forEach(btn => btn.disabled = false); }
+        }
+
         function cancelEditUserPermission() {
             const form = document.getElementById('permissionForm');
             if (!form) return;
