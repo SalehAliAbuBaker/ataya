@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تجريبي | تسجيل الدخول - سجل العطايا</title>
+
+    <!-- أيقونة التطبيق وإعدادات التثبيت على شاشة الجوال -->
+    <link rel="icon" type="image/png" href="../icon.png?v=2">
+    <link rel="apple-touch-icon" href="../icon.png?v=2">
+    <link rel="manifest" href="../manifest.json?v=2">
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('../service-worker.js').catch(error => console.warn('Offline setup:', error));
+        }
+    </script>
+    <meta name="theme-color" content="#4338ca">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="سجل العطايا">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50 min-h-screen flex items-center justify-center p-4 text-slate-800">
+    <form id="loginForm" class="bg-white w-full max-w-sm p-6 rounded-2xl shadow-md border border-slate-200 space-y-4">
+        <div class="text-center">
+            <img src="../icon.png?v=2" alt="شعار" onerror="this.style.display='none'" class="w-16 h-16 mx-auto mb-2 rounded-xl shadow-xs object-contain">
+            <h1 class="text-lg font-bold text-indigo-700">سجل العطايا والمستفيدين</h1>
+        </div>
+
+        <div>
+            <label for="user" class="block text-xs font-semibold mb-1">اسم المستخدم أو البريد</label>
+            <input id="user" type="text" required autocomplete="username" dir="ltr"
+                   class="w-full p-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+        </div>
+        <div>
+            <label for="pass" class="block text-xs font-semibold mb-1">كلمة المرور</label>
+            <input id="pass" type="password" required autocomplete="current-password" dir="ltr"
+                   class="w-full p-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+        </div>
+
+        <p id="err" class="hidden text-xs text-rose-600 bg-rose-50 border border-rose-200 rounded-lg p-2"></p>
+
+        <button id="btn" type="submit"
+                class="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-semibold py-2.5 rounded-lg text-sm">
+            دخول
+        </button>
+    </form>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+
+        const app = initializeApp({
+            apiKey: "AIzaSyDCgspXEuju7E59g9VTdXUEjFMwjX3fnU8",
+            authDomain: "atayadata-e5810.firebaseapp.com",
+            databaseURL: "https://atayadata-e5810-default-rtdb.firebaseio.com",
+            projectId: "atayadata-e5810",
+            storageBucket: "atayadata-e5810.firebasestorage.app",
+            messagingSenderId: "839657864145",
+            appId: "1:839657864145:web:27c59021d2e0039c00fef0"
+        });
+        const auth = getAuth(app);
+
+        // إذا كان مسجلاً مسبقاً ننتقل مباشرة للتطبيق
+        onAuthStateChanged(auth, u => { if (u) location.replace('index.html'); });
+
+        // اسم المستخدم البسيط يُحوَّل إلى بريد داخلي: ahmed → ahmed@ataya.local
+        const toEmail = v => { v = v.trim().toLowerCase(); return v.includes('@') ? v : `${v}@ataya.local`; };
+
+        const form = document.getElementById('loginForm');
+        const err = document.getElementById('err');
+        const btn = document.getElementById('btn');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            err.classList.add('hidden');
+            btn.disabled = true;
+            try {
+                await signInWithEmailAndPassword(auth, toEmail(user.value), pass.value);
+            } catch (ex) {
+                const bad = ['auth/invalid-credential', 'auth/wrong-password', 'auth/user-not-found', 'auth/invalid-email'];
+                err.textContent = bad.includes(ex.code) ? 'اسم المستخدم أو كلمة المرور غير صحيحة.'
+                                : ex.code === 'auth/too-many-requests' ? 'محاولات كثيرة، حاول لاحقاً.'
+                                : 'تعذر الاتصال. يلزم الإنترنت لتسجيل الدخول أول مرة؛ بعدها يمكن الدخول دون اتصال على الجهاز نفسه ما دامت الجلسة محفوظة.';
+                err.classList.remove('hidden');
+                btn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>

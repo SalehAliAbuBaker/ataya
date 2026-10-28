@@ -1,0 +1,2830 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تجريبي | سجل العطايا والمستفيدين</title>
+
+    <!-- أيقونة التطبيق وإعدادات التثبيت على شاشة الجوال -->
+    <link rel="icon" type="image/png" href="../icon.png?v=2">
+    <link rel="apple-touch-icon" href="../icon.png?v=2">
+    <link rel="manifest" href="../manifest.json?v=2">
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('../service-worker.js').catch(error => console.warn('Offline setup:', error));
+        }
+    </script>
+    <meta name="theme-color" content="#4338ca">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="سجل العطايا">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Tajawal', system-ui, -apple-system, sans-serif; background-color: #f8fafc; }
+        /* ضمان إخفاء جميع الأقسام وإظهار القسم النشط فقط */
+        main > section { display: none !important; }
+        main > section.active-section { display: block !important; }
+        input[type="date"] { direction: rtl; text-align: right; }
+        @media print {
+            nav, header, .no-print { display: none !important; }
+            .print-area { display: block !important; }
+        }
+        /* كشف العطية (عرض + طباعة A4 + PDF) */
+        .stmt-sheet { font-family: 'Tajawal', Tahoma, sans-serif; direction: rtl; width: 718px; background: transparent; color: #0f172a; font-size: 13px; line-height: 1.6; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .stmt-head { text-align: center; border-bottom: 2px solid #1e293b; padding-bottom: 8px; margin-bottom: 12px; }
+        .stmt-head .basmala { 
+            font-family: 'Tajawal', Tahoma, sans-serif !important; 
+            font-size: 16px; 
+            font-weight: 700; 
+            color: #0f172a; 
+            margin: 0 auto 6px auto; 
+            letter-spacing: normal !important; 
+            word-spacing: normal !important; 
+            direction: rtl !important; 
+            unicode-bidi: isolate !important;
+            display: block;
+            text-align: center;
+        }
+        .stmt-head .org { font-size: 12px; color: #475569; }
+        .stmt-head h1 { font-size: 22px; font-weight: 700; margin: 2px 0 0; }
+        .stmt-meta { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
+        .stmt-meta th { width: 17%; background: #f1f5f9; text-align: right; font-weight: 700; }
+        .stmt-meta th, .stmt-meta td { border: 1px solid #94a3b8; padding: 5px 8px; }
+        .stmt-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+        .stmt-table th { background: #e2e8f0; border: 1px solid #64748b; padding: 6px 5px; font-weight: 700; text-align: center; }
+        .stmt-table td { border: 1px solid #94a3b8; padding: 5px 6px; }
+        .stmt-table td.c { text-align: center; }
+        .stmt-table thead { display: table-header-group; }
+        .stmt-table tr { break-inside: avoid; page-break-inside: avoid; }
+        .stmt-table tfoot td { background: #f1f5f9; font-weight: 700; border-top: 2px solid #475569; }
+        .stmt-sign { display: flex; gap: 20px; margin-top: 26px; break-inside: avoid; page-break-inside: avoid; }
+        .stmt-sign > div { flex: 1; border: 1px solid #94a3b8; padding: 10px 12px; min-height: 96px; }
+        .stmt-sign b { display: block; margin-bottom: 10px; font-size: 13px; }
+        .stmt-sign p { margin: 12px 0 0; font-size: 12px; color: #334155; }
+        .stmt-sign .ln { display: inline-block; width: 62%; border-bottom: 1px dotted #475569; vertical-align: bottom; }
+        @page { size: A4 portrait; margin: 10mm; }
+        .stmt-page { position: relative; width: 718px; height: 1040px; padding: 14px 16px 38px; overflow: hidden; background: #fff; box-sizing: border-box; }
+        .stmt-compact { display: flex; justify-content: space-between; align-items: center; gap: 8px; border-bottom: 2px solid #1e293b; padding-bottom: 6px; margin-bottom: 10px; font-size: 12px; color: #334155; }
+        .stmt-compact b { font-size: 15px; color: #0f172a; }
+        .stmt-foot { position: absolute; bottom: 6px; right: 16px; left: 16px; text-align: center; font-size: 11px; color: #475569; border-top: 1px solid #cbd5e1; padding-top: 5px; background: #fff; }
+        #statementSheet .stmt-page { margin-bottom: 18px; box-shadow: 0 2px 8px rgba(0,0,0,.22); border-radius: 4px; }
+        @media print {
+            body.printing-statement > *:not(#statementViewer) { display: none !important; }
+            body.printing-statement #statementViewer { position: static !important; display: block !important; overflow: visible !important; background: #fff !important; height: auto !important; }
+            body.printing-statement #statementScale { padding: 0 !important; display: block !important; }
+            body.printing-statement #statementSheet { zoom: 1 !important; box-shadow: none !important; background: transparent !important; }
+            body.printing-statement .stmt-sheet { width: 100% !important; }
+            body.printing-statement .stmt-page { width: 100% !important; margin: 0 !important; padding: 0 0 34px 0 !important; box-shadow: none !important; border-radius: 0 !important; break-after: page; page-break-after: always; }
+            body.printing-statement .stmt-page:last-child { break-after: auto; page-break-after: auto; }
+        }
+        /* Searchable categories: existing Firebase category values are preserved. */
+        .ataya-category-picker { position:relative; width:100%; }
+        .ataya-category-menu {
+            position:absolute; top:calc(100% + 5px); right:0; left:0; z-index:70;
+            background:#fff; border:1px solid #cbd5e1; border-radius:12px;
+            box-shadow:0 12px 25px rgba(15,23,42,.18); max-height:270px;
+            overflow-y:auto; overscroll-behavior:contain; padding:5px;
+        }
+        .ataya-category-menu[hidden] { display:none!important; }
+        .ataya-category-heading { font-size:11px; color:#64748b; padding:7px 9px; }
+        .ataya-category-empty { font-size:12px; color:#64748b; padding:14px 9px; }
+        .ataya-category-item {
+            display:flex; align-items:center; justify-content:space-between;
+            width:100%; gap:10px; text-align:right; padding:9px;
+            color:#0f172a; font-size:13px; border-radius:7px;
+        }
+        .ataya-category-item[aria-selected="true"], .ataya-category-item:hover { background:#eef2ff; color:#312e81; }
+        .ataya-category-item small { color:#64748b; font-size:10px; white-space:nowrap; }
+        .ataya-category-new {
+            display:block; width:100%; padding:10px; text-align:right;
+            border-top:1px solid #e2e8f0; font-size:12px; font-weight:600;
+            color:#047857; background:#ecfdf5; border-radius:6px;
+        }
+        .ataya-category-native {
+            position:absolute!important; width:1px!important; height:1px!important;
+            overflow:hidden!important; opacity:0!important; pointer-events:none!important;
+        }
+        /* Speech is user-initiated and optional; all normal keyboard entry remains usable. */
+        .ataya-voice-wrapper { position:relative; width:100%; min-width:0; }
+        .ataya-voice-wrapper.ataya-voice-inline { width:auto; }
+        .ataya-voice-wrapper .ataya-voice-input { padding-left:43px!important; }
+        /* Reserve room for the existing clear-search icon beside the microphone. */
+        .ataya-voice-wrapper #distSearchInput,
+        .ataya-voice-wrapper #filterReportSearchName { padding-left:80px!important; }
+        .ataya-voice-button {
+            position:absolute; top:50%; left:5px; transform:translateY(-50%);
+            display:flex; align-items:center; justify-content:center;
+            width:32px; height:32px; border-radius:8px; z-index:2;
+            color:#4338ca; background:#eef2ff; border:1px solid #c7d2fe;
+            cursor:pointer; transition:background .15s ease;
+        }
+        .ataya-voice-button:hover { background:#e0e7ff; }
+        .ataya-voice-button:focus-visible { outline:2px solid #4338ca; outline-offset:2px; }
+        .ataya-voice-listening { background:#fee2e2; color:#b91c1c; border-color:#fca5a5; animation:atayaVoicePulse 1.1s infinite; }
+        @keyframes atayaVoicePulse { 50% { opacity:.65; } }
+        .ataya-voice-multiline .ataya-voice-button { top:20px; }
+        .ataya-voice-wrapper:has(#benNeedPercent) + span { left:48px!important; }
+        #atayaVoiceStatus {
+            position:fixed; bottom:18px; left:14px; z-index:90; max-width: min(80vw,360px);
+            padding:9px 12px; font-size:12px; line-height:1.6; color:#fff;
+            background:#1e293b; border-radius:10px; box-shadow:0 6px 18px rgba(15,23,42,.25);
+        }
+        #atayaVoiceStatus:empty { display:none; }
+    </style>
+    <script>
+        document.documentElement.style.visibility = 'hidden';
+        setTimeout(() => { document.documentElement.style.visibility = 'visible'; }, 8000);
+    </script>
+</head>
+<body class="bg-slate-50 min-h-screen text-slate-800 pb-20">
+
+    <!-- Header -->
+    <header class="bg-indigo-700 text-white p-3 shadow-md sticky top-0 z-20">
+        <div class="max-w-4xl mx-auto flex flex-wrap justify-between items-center gap-2">
+            <div class="flex items-center gap-2">
+                <img src="../icon.png?v=2" alt="" onerror="this.style.display='none'" class="w-7 h-7 rounded-md bg-white/10 p-0.5 object-contain">
+                <h1 class="text-base md:text-lg font-bold">سجل العطايا والمستفيدين</h1>
+                <span id="cloudStatusBadge" class="text-[10px] bg-indigo-900/70 border border-indigo-400/40 px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <span class="inline-block w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span> جاري المزامنة...
+                </span>
+            </div>
+            
+            <div class="flex items-center gap-2 text-xs">
+                <div class="bg-indigo-800/80 px-2.5 py-1 rounded-lg border border-indigo-500/40 flex items-center gap-1 text-[11px]">
+                    <span>👤</span>
+                    <span id="displayUserName" class="font-bold text-amber-200"></span>
+                </div>
+
+                <button type="button" onclick="openBackupModal()" class="text-xs bg-indigo-800 hover:bg-indigo-900 px-2.5 py-1.5 rounded-lg border border-indigo-400 flex items-center gap-1 shadow-sm transition">
+                    ☁️️ النسخ
+                </button>
+
+                <button type="button" onclick="logoutUser()" title="تسجيل الخروج" class="text-xs bg-rose-600 hover:bg-rose-700 px-2 py-1.5 rounded-lg border border-rose-400 flex items-center gap-1 shadow-sm transition">
+                    خروج 🚪
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="p-3 max-w-4xl mx-auto">
+        
+        <!-- Navigation Menu -->
+        <nav class="grid grid-cols-2 md:grid-cols-6 gap-2 mb-4 no-print text-xs md:text-sm font-medium">
+            <button type="button" onclick="showSection('beneficiariesSection')" id="nav-beneficiariesSection" class="nav-btn bg-indigo-600 text-white py-2.5 px-1 rounded-lg border border-slate-200 shadow-sm text-center">المستفيدون</button>
+            <button type="button" onclick="showSection('grantsSection')" id="nav-grantsSection" class="nav-btn bg-white py-2.5 px-1 rounded-lg border border-slate-200 text-slate-700 shadow-sm text-center">العطايا</button>
+            <button type="button" onclick="showSection('distributeSection')" id="nav-distributeSection" class="nav-btn bg-white py-2.5 px-1 rounded-lg border border-slate-200 text-slate-700 shadow-sm text-center">الصرف الميداني</button>
+            <button type="button" onclick="showSection('reportsSection')" id="nav-reportsSection" class="nav-btn bg-white py-2.5 px-1 rounded-lg border border-slate-200 text-slate-700 shadow-sm text-center">التقارير</button>
+            <button type="button" onclick="showSection('statementsSection')" id="nav-statementsSection" class="nav-btn bg-white py-2.5 px-1 rounded-lg border border-slate-200 text-slate-700 shadow-sm text-center">الكشوفات</button>
+            <button type="button" onclick="showSection('permissionsSection')" id="nav-permissionsSection" class="nav-btn hidden bg-white py-2.5 px-1 rounded-lg border border-amber-200 text-amber-800 shadow-sm text-center">صلاحيات المستخدمين</button>
+        </nav>
+
+        <!-- إدارة صلاحيات المستخدمين -->
+        <section id="permissionsSection" class="hidden-section">
+            <div class="bg-amber-50 border border-amber-200 p-3 rounded-xl mb-4 text-xs">
+                <h2 class="font-bold text-amber-900 text-base mb-1">إدارة صلاحيات المستخدمين</h2>
+                <p class="text-amber-800 leading-6">أنشئ مستخدمًا جديدًا من هنا باسم دخول وكلمة مرور وصلاحياته. سيُنشأ حسابه في Firebase Authentication وتُربط صلاحياته بقاعدة Ataya Data. يلزم الإنترنت أثناء إنشاء الحساب.</p>
+            </div>
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 mb-4">
+                <form onsubmit="saveUserPermission(event)" class="space-y-3">
+                    <div>
+                        <label class="block text-xs font-semibold mb-1">البريد أو اسم المستخدم</label>
+                        <input id="permissionEmail" type="text" required dir="ltr" placeholder="ahmed أو ahmed@example.com" class="w-full p-2 border border-slate-300 rounded-lg text-sm">
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label for="permissionPassword" class="block text-xs font-semibold mb-1">كلمة مرور المستخدم الجديد</label>
+                            <input id="permissionPassword" type="password" minlength="8" autocomplete="new-password" dir="ltr" placeholder="8 أحرف على الأقل" class="w-full p-2 border border-slate-300 rounded-lg text-sm">
+                        </div>
+                        <div>
+                            <label for="permissionPasswordConfirm" class="block text-xs font-semibold mb-1">تأكيد كلمة المرور</label>
+                            <input id="permissionPasswordConfirm" type="password" minlength="8" autocomplete="new-password" dir="ltr" class="w-full p-2 border border-slate-300 rounded-lg text-sm">
+                        </div>
+                    </div>
+                    <div class="flex flex-wrap gap-4 text-xs font-semibold">
+                        <label class="flex items-center gap-2"><input id="permissionView" type="checkbox" checked class="w-4 h-4"> الاطلاع على البيانات</label>
+                        <label class="flex items-center gap-2"><input id="permissionAdd" type="checkbox" class="w-4 h-4"> الإضافة</label>
+                        <label class="flex items-center gap-2 text-indigo-700"><input id="permissionReports" type="checkbox" class="w-4 h-4"> عرض التقارير والكشوفات</label>
+                        <label class="flex items-center gap-2"><input id="permissionEdit" type="checkbox" class="w-4 h-4"> التعديل والحذف</label>
+                        <label class="flex items-center gap-2 text-amber-700"><input id="permissionAdmin" type="checkbox" class="w-4 h-4"> مدير صلاحيات</label>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <button type="submit" name="permissionAction" value="create" class="bg-amber-600 hover:bg-amber-700 text-white font-semibold py-2.5 rounded-lg">إنشاء المستخدم وكلمة المرور</button>
+                        <button type="submit" name="permissionAction" value="existing" class="border border-amber-300 text-amber-900 bg-amber-50 font-semibold py-2.5 rounded-lg">حفظ صلاحيات حساب موجود</button>
+                    </div>
+                    <p class="text-xs text-slate-500">كلمات المرور لا تُحفظ في قاعدة بيانات العطايا. إنشاء الحسابات يتطلب الإنترنت.</p>
+                </form>
+            </div>
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                <h3 class="font-bold text-slate-700 text-sm mb-3">المستخدمون المضافون</h3>
+                <div id="permissionsList" class="space-y-2"></div>
+            </div>
+        </section>
+
+        <!-- نافذة النسخ الاحتياطي -->
+        <div id="backupModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 hidden">
+            <div class="bg-white rounded-2xl max-w-md w-full p-5 shadow-2xl border border-slate-100">
+                <div class="flex justify-between items-center mb-3 border-b border-slate-100 pb-2">
+                    <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+                        <span>☁️</span> النسخ الاحتياطي السحابي (Google Drive)
+                    </h3>
+                    <button type="button" onclick="closeBackupModal()" class="text-slate-400 hover:text-rose-600 text-xl font-bold">&times;</button>
+                </div>
+
+                <p class="text-xs text-slate-600 mb-4 leading-relaxed">
+                    يعمل سجل العطايا دون إنترنت بعد تسجيل الدخول أول مرة. تُحفظ عملياتك على هذا الجهاز، وتُرسل تلقائيًا إلى <b>Firebase</b> عند عودة الإنترنت. يمكنك أيضًا تنزيل نسخة احتياطية يدويًا أو رفعها إلى Google Drive عند الاتصال.
+                </p>
+
+                <div class="space-y-3">
+                    <div class="p-3 bg-indigo-50 border border-indigo-200 rounded-xl">
+                        <span class="block font-bold text-xs text-indigo-900 mb-1">1. تصدير وحفظ نسخة جديدة:</span>
+                        <button type="button" onclick="uploadBackupToGoogleDrive()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 rounded-lg text-xs shadow-sm flex items-center justify-center gap-1">
+                            ☁️ رفع النسخة مباشرة إلى Google Drive
+                        </button>
+                        <button type="button" onclick="exportBackupData()" class="w-full mt-2 bg-white hover:bg-indigo-50 text-indigo-700 border border-indigo-300 font-semibold py-2 rounded-lg text-xs flex items-center justify-center gap-1">
+                            📥 تنزيل نسخة JSON يدويًا
+                        </button>
+                        <label class="block mt-3 text-[11px] text-indigo-900 font-semibold">معرّف عميل Google (Client ID):</label>
+                        <input id="googleClientId" type="text" placeholder="1234567890-xxxx.apps.googleusercontent.com" class="w-full mt-1 p-2 border border-indigo-200 rounded-lg text-[11px]" autocomplete="off">
+                    </div>
+
+                    <div class="p-3 bg-emerald-50 border border-emerald-200 rounded-xl">
+                        <span class="block font-bold text-xs text-emerald-900 mb-1">2. استرجاع نسخة سابقة (استبدال كامل):</span>
+                        <input type="file" id="restoreFileInput" accept=".json" class="hidden" onchange="importBackupData(event)">
+                        <button type="button" onclick="document.getElementById('restoreFileInput').click()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 rounded-lg text-xs shadow-sm flex items-center justify-center gap-1">
+                            📤 استيراد واسترجاع البيانات
+                        </button>
+                    </div>
+                </div>
+
+                <button type="button" onclick="closeBackupModal()" class="w-full mt-4 bg-slate-100 hover:bg-slate-200 text-slate-700 py-2 rounded-lg text-xs font-semibold">
+                    إغلاق
+                </button>
+            </div>
+        </div>
+
+        <!-- ================= 1. قسم المستفيدين ================= -->
+        <section id="beneficiariesSection" class="active-section">
+            <div class="bg-indigo-50 border border-indigo-200 p-3 rounded-xl mb-4 flex justify-between items-center text-xs">
+                <div>
+                    <span class="font-bold text-indigo-900 block">استيراد أسماء من Excel</span>
+                    <span class="text-indigo-600 text-[11px]">يتجاهل الأسماء المكررة والهمزات تلقائياً</span>
+                </div>
+                <input type="file" id="excelFile" accept=".xlsx, .xls, .csv" class="hidden" onchange="importExcel(event)">
+                <button type="button" data-permission="add" onclick="document.getElementById('excelFile').click()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-lg font-semibold shadow-xs">رفع ملف إكسل</button>
+            </div>
+
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 mb-4">
+                <div class="flex justify-between items-center mb-3">
+                    <h2 id="benFormTitle" class="text-base font-bold text-indigo-700">إضافة مستفيد جديد</h2>
+                    <button type="button" id="cancelBenEditBtn" onclick="resetBenForm()" class="hidden text-xs text-rose-600 hover:underline">إلغاء التعديل</button>
+                </div>
+                
+                <form id="benForm" onsubmit="saveBeneficiary(event)">
+                    <input type="hidden" id="editBenId">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                        <div class="md:col-span-2">
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">الاسم الكامل <span class="text-red-500 font-bold">* (إجباري - يمنع التكرار)</span></label>
+                            <input type="text" id="benName" required placeholder="اسم المستفيد الكامل" class="w-full p-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">المنطقة / الحي</label>
+                            <input type="text" id="benArea" placeholder="مثال: الروضة" class="w-full p-2 border border-slate-300 rounded-lg text-sm">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">رقم التواصل</label>
+                            <input type="tel" id="benPhone" placeholder="77xxxxxxx" class="w-full p-2 border border-slate-300 rounded-lg text-sm">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">عدد أفراد الأسرة</label>
+                            <input type="number" id="benFamilyCount" min="1" placeholder="مثال: 5" class="w-full p-2 border border-slate-300 rounded-lg text-sm">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">نسبة الاحتياج % (مفتوحة)</label>
+                            <div class="relative">
+                                <input type="number" id="benNeedPercent" min="0" step="any" placeholder="مثال: 120" class="w-full p-2 border border-slate-300 rounded-lg text-sm pr-2 pl-7 font-bold text-amber-800">
+                                <span class="absolute left-2.5 top-2 text-slate-400 text-sm">%</span>
+                            </div>
+                        </div>
+
+                        <div class="md:col-span-2">
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">الفئة</label>
+                            <input type="text" id="benCategory" placeholder="مثال: دار المصطفى، أيتام..." class="w-full p-2 border border-slate-300 rounded-lg text-sm bg-white">
+                        </div>
+                    </div>
+
+                    <button type="submit" id="benSubmitBtn" class="w-full bg-indigo-600 text-white font-semibold py-2.5 rounded-lg hover:bg-indigo-700 transition text-sm">حفظ المستفيد في السجل</button>
+                </form>
+            </div>
+
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                <div class="flex flex-wrap justify-between items-center gap-2 mb-3">
+                    <h2 class="text-base font-bold text-slate-700">المستفيدون المسجلون (<span id="totalBenCount">0</span>)</h2>
+                    <div class="flex flex-wrap items-center gap-1.5">
+                        <select id="sortBenSelect" onchange="renderBeneficiaries()" class="p-1.5 border border-slate-300 rounded-md text-xs bg-white font-semibold text-slate-700">
+                            <option value="alpha">الفرز: الأبجدية (أ - ي)</option>
+                            <option value="need_desc">الاحتياج (الأعلى أولاً)</option>
+                            <option value="need_asc">الاحتياج (الأقل أولاً)</option>
+                            <option value="latest">الأحدث إضافة</option>
+                        </select>
+                        <input type="text" id="searchBen" oninput="renderBeneficiaries()" placeholder="بحث بالاسم أو المنطقة..." class="p-1.5 border border-slate-300 rounded-md text-xs w-44">
+                    </div>
+                </div>
+                <div id="beneficiariesList" class="space-y-2"></div>
+            </div>
+        </section>
+
+        <!-- ================= 2. قسم العطايا ================= -->
+        <section id="grantsSection" class="hidden-section">
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 mb-4">
+                <div class="flex justify-between items-center mb-3">
+                    <h2 id="grantFormTitle" class="text-base font-bold text-indigo-700">تسجيل عطية جديدة</h2>
+                    <button type="button" id="cancelGrantEditBtn" onclick="resetGrantForm()" class="hidden text-xs text-rose-600 hover:underline">إلغاء التعديل</button>
+                </div>
+
+                <input type="hidden" id="editGrantId">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                    <div class="md:col-span-2">
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">نوع / مسمى العطية *</label>
+                        <input type="text" id="grantName" placeholder="مثال: سلة غذائية، مساعدة نقدية..." class="w-full p-2 border border-slate-300 rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">المانح / الممول</label>
+                        <input type="text" id="grantDonor" placeholder="فاعل خير / مؤسسة ممولة" class="w-full p-2 border border-slate-300 rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">التاريخ *</label>
+                        <input type="date" id="grantDate" class="w-full p-2 border border-slate-300 rounded-lg text-sm bg-white cursor-pointer">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">رقم المستند (يُولَّد تلقائياً إن تُرك فارغاً)</label>
+                        <input type="text" id="grantDocNo" placeholder="مثال: ع-2026-001" dir="ltr" class="w-full p-2 border border-slate-300 rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">الاستحقاق الافتراضي (عطية واحدة)</label>
+                        <input type="number" id="grantDefaultQuota" value="1" min="1" class="w-full p-2 border border-slate-300 rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">مبلغ العطية (اختياري)</label>
+                        <input type="number" id="grantUnitAmount" min="0" step="any" placeholder="اتركه فارغاً إن لم يكن للعطية مبلغ" class="w-full p-2 border border-slate-300 rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">نوع العملة (اختياري)</label>
+                        <select id="grantCurrency" class="w-full p-2 border border-slate-300 rounded-lg text-sm bg-white">
+                            <option value="">بدون عملة</option>
+                            <option value="ريال يمني">ريال يمني</option>
+                            <option value="ريال سعودي">ريال سعودي</option>
+                            <option value="دولار">دولار</option>
+                            <option value="درهم إماراتي">درهم إماراتي</option>
+                        </select>
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">تفاصيل العطية</label>
+                        <textarea id="grantDetails" rows="2" placeholder="وصف مختصر، مكوّنات العطية، ملاحظات..." class="w-full p-2 border border-slate-300 rounded-lg text-sm"></textarea>
+                    </div>
+                </div>
+                <button type="button" onclick="saveGrant()" id="grantSubmitBtn" class="w-full bg-indigo-600 text-white font-semibold py-2.5 rounded-lg hover:bg-indigo-700 transition text-sm">حفظ العطية</button>
+            </div>
+
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                <h2 class="text-base font-bold mb-3 text-slate-700">قائمة العطايا المعتمدة</h2>
+                <div id="grantsList" class="space-y-2"></div>
+            </div>
+        </section>
+
+        <!-- ================= 3. قسم الصرف والتأشير السريع والبحث ================= -->
+        <section id="distributeSection" class="hidden-section">
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 mb-4">
+                <h2 class="text-base font-bold mb-3 text-indigo-700">تسليم العطايا والبحث الفوري</h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">اختر العطية الحالية:</label>
+                        <select id="distGrantSelect" onchange="onGrantSelectionChange()" class="w-full p-2 border border-slate-300 rounded-lg text-sm bg-indigo-50 font-medium"></select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">تصفية حسب الفئة:</label>
+                        <select id="distCategorySelect" onchange="loadDistributionList()" class="w-full p-2 border border-slate-300 rounded-lg text-sm bg-white">
+                            <option value="الكل">كل الفئات</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">فرز المستفيدين حسب:</label>
+                        <select id="distSortSelect" onchange="loadDistributionList()" class="w-full p-2 border border-slate-300 rounded-lg text-sm bg-white font-semibold text-slate-700">
+                            <option value="alpha">الأبجدية (أ - ي)</option>
+                            <option value="need_desc">الاحتياج (من الأعلى للأقل)</option>
+                            <option value="need_asc">الاحتياج (من الأقل للأعلى)</option>
+                            <option value="latest">الأحدث إضافة</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="block text-xs font-semibold text-indigo-900 mb-1">🔍 ابحث بالاسم أو جزء منه (يبقى التأشير محفوظاً عند البحث عن اسم آخر):</label>
+                    <div class="relative flex items-center">
+                        <input type="text" id="distSearchInput" oninput="loadDistributionList()" placeholder="اكتب جزءاً من اسم المستفيد للوصول الفوري..." class="w-full p-2.5 pl-8 border-2 border-indigo-200 rounded-lg text-sm focus:border-indigo-600 focus:outline-none bg-indigo-50/30">
+                        <button type="button" onclick="clearDistSearch()" title="مسح البحث" class="absolute left-12 text-slate-400 hover:text-slate-600 text-sm font-bold">✕</button>
+                    </div>
+                </div>
+
+                <!-- شريط التحديد وزر الاعتماد في الأعلى -->
+                <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 mb-3 space-y-2.5 sticky top-14 z-10 shadow-sm">
+                    <div class="flex flex-wrap justify-between items-center gap-2 text-xs">
+                        <div class="flex items-center gap-3">
+                            <label class="flex items-center gap-2 cursor-pointer font-semibold text-indigo-700">
+                                <input type="checkbox" id="selectAllCheck" onchange="selectAllVisible(this.checked)" class="w-5 h-5 text-indigo-600 rounded border-slate-300 cursor-pointer disabled:opacity-30">
+                                تحديد المعروض
+                            </label>
+                            <button type="button" onclick="clearAllSelections()" id="clearSelectionBtn" class="hidden text-rose-600 hover:underline font-semibold text-[11px]">
+                                إلغاء تحديد الكل
+                            </button>
+                        </div>
+                        <span id="selectionSummary" class="text-slate-700 font-bold bg-white px-2.5 py-1 rounded-lg border border-slate-200">تم تحديد: 0 أفراد</span>
+                    </div>
+
+                    <button type="button" data-permission="add" onclick="confirmDistribution()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-lg shadow-sm transition text-sm">
+                        اعتماد وحفظ الصرف للمحددين
+                    </button>
+                </div>
+
+                <!-- قائمة المستفيدين -->
+                <div id="distributeList" class="space-y-2 mb-4"></div>
+            </div>
+        </section>
+
+        <!-- ================= 4. قسم التقارير ================= -->
+        <section id="reportsSection" class="hidden-section">
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 mb-4 no-print">
+                <div class="flex justify-between items-center mb-3">
+                    <h2 class="text-sm font-bold text-indigo-700 flex items-center gap-1">
+                        <span>🔍 تصفية وفلترة التقارير</span>
+                    </h2>
+                    <button type="button" onclick="resetFilters()" class="text-xs text-slate-500 hover:text-rose-600 hover:underline">إعادة تعيين الفلاتر</button>
+                </div>
+
+                <div class="mb-3 bg-indigo-50/50 p-2.5 rounded-lg border border-indigo-100">
+                    <label class="block text-xs font-bold text-indigo-900 mb-1">بحث سريع في التقرير بالاسم (كامل أو مقطع):</label>
+                    <div class="relative flex items-center">
+                        <input type="text" id="filterReportSearchName" oninput="renderFilteredLogs()" placeholder="اكتب الاسم أو مقطعاً منه لتصفية الكشف فوراً..." class="w-full p-2 pl-8 border border-indigo-200 rounded-lg text-xs bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <button type="button" onclick="clearReportSearch()" class="absolute left-12 text-slate-400 hover:text-slate-600 text-xs font-bold">✕</button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 md:grid-cols-3 gap-2.5 text-xs">
+                    <div>
+                        <label class="block text-slate-600 font-semibold mb-1">نوع العطية:</label>
+                        <select id="filterGrant" onchange="renderFilteredLogs()" class="w-full p-2 border border-slate-300 rounded-lg bg-white">
+                            <option value="">جميع العطايا</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-slate-600 font-semibold mb-1">المانح / الممول:</label>
+                        <select id="filterDonor" onchange="renderFilteredLogs()" class="w-full p-2 border border-slate-300 rounded-lg bg-white">
+                            <option value="">جميع المانحين</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-slate-600 font-semibold mb-1">المنطقة / الحي:</label>
+                        <select id="filterArea" onchange="renderFilteredLogs()" class="w-full p-2 border border-slate-300 rounded-lg bg-white">
+                            <option value="">جميع المناطق</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-slate-600 font-semibold mb-1">الفئة المستهدفة:</label>
+                        <select id="filterCategory" onchange="renderFilteredLogs()" class="w-full p-2 border border-slate-300 rounded-lg bg-white">
+                            <option value="">جميع الفئات</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-slate-600 font-semibold mb-1">من تاريخ:</label>
+                        <input type="date" id="filterFromDate" onchange="renderFilteredLogs()" class="w-full p-1.5 border border-slate-300 rounded-lg bg-white cursor-pointer">
+                    </div>
+
+                    <div>
+                        <label class="block text-slate-600 font-semibold mb-1">إلى تاريخ:</label>
+                        <input type="date" id="filterToDate" onchange="renderFilteredLogs()" class="w-full p-1.5 border border-slate-300 rounded-lg bg-white cursor-pointer">
+                    </div>
+                </div>
+
+                <div class="mt-3 pt-3 border-t border-slate-100 flex flex-wrap gap-4 text-xs font-semibold text-slate-700">
+                    <div>العمليات المفلترة: <span id="statOpsCount" class="text-indigo-600 font-bold">0</span></div>
+                    <div>إجمالي العطايا (الكميات): <span id="statTotalAmount" class="text-emerald-600 font-bold">0</span></div>
+                </div>
+            </div>
+
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 mb-4">
+                <div class="flex flex-wrap justify-between items-center gap-2 mb-3">
+                    <h2 class="text-base font-bold text-slate-700">نتائج الكشف</h2>
+                    
+                    <div class="flex flex-wrap gap-1.5 no-print">
+                        <button type="button" data-permission="add" onclick="openAddLogFromReportModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 shadow-sm">
+                            ➕ إضافة مستفيد للكشف
+                        </button>
+                        <button type="button" onclick="sharePDFToWhatsAppSmart()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 shadow-sm">
+                            مشاركة PDF للواتساب
+                        </button>
+                        <button type="button" onclick="shareTextDirect()" class="bg-teal-600 hover:bg-teal-700 text-white px-2.5 py-1.5 rounded-lg text-xs font-semibold shadow-sm">
+                            مشاركة نصية للواتساب
+                        </button>
+                        <button type="button" onclick="downloadPDFDirect()" class="bg-rose-600 hover:bg-rose-700 text-white px-2.5 py-1.5 rounded-lg text-xs font-semibold shadow-sm">
+                            تنزيل PDF
+                        </button>
+                        <button type="button" onclick="exportToExcel()" class="bg-slate-700 hover:bg-slate-800 text-white px-2.5 py-1.5 rounded-lg text-xs font-semibold shadow-sm">
+                            إكسل
+                        </button>
+                    </div>
+                </div>
+
+                <div id="pdfReportArea" class="overflow-x-auto p-3 bg-white rounded-lg border border-slate-100">
+                    <div class="text-center pb-3 border-b mb-3 border-slate-200">
+                        <div class="basmala font-bold text-slate-800 text-sm mb-1" style="font-family:'Tajawal',Tahoma,sans-serif; direction:rtl; unicode-bidi:isolate;">بسم الله الرحمن الرحيم</div>
+                        <h3 class="text-base font-bold text-slate-800">كشف صرف العطايا والمساعدات</h3>
+                        <p class="text-[11px] text-slate-500 mt-0.5">تاريخ التقرير: <span id="reportPrintDate"></span></p>
+                        <p id="activeFilterDesc" class="text-[10px] text-indigo-700 font-semibold mt-1"></p>
+                    </div>
+                    <table class="w-full text-right text-xs">
+                        <thead class="bg-slate-100 text-slate-700 border-b border-slate-200">
+                            <tr>
+                                <th class="p-2">المستفيد</th>
+                                <th class="p-2">المنطقة</th>
+                                <th class="p-2 text-center">النسبة</th>
+                                <th class="p-2">العطية</th>
+                                <th class="p-2">المانح</th>
+                                <th class="p-2 text-center">الكمية</th>
+                                <th class="p-2 text-center">المبلغ</th>
+                                <th class="p-2 text-center">بواسطة</th>
+                                <th class="p-2">تاريخ الاستلام</th>
+                                <th class="p-2 text-center no-print">إجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody id="logsTableBody" class="divide-y divide-slate-100"></tbody>
+                    </table>
+                    <div class="stmt-sign"><div><b>1. إعداد المختص:</b><p>الاسم: <i class="ln"></i></p><p>التوقيع: <i class="ln"></i></p></div><div><b>2. اعتمد من:</b><p>الاسم: <i class="ln"></i></p><p>التوقيع: <i class="ln"></i></p></div></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= 5. كشوفات العطايا (تجميعي) ================= -->
+        <section id="statementsSection" class="hidden-section">
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                <h2 class="text-base font-bold mb-1 text-indigo-700">كشوفات العطايا</h2>
+                <p class="text-[11px] text-slate-500 mb-3">كشف تجميعي لكل عطية مقسم على صفحات A4: قائمة المستفيدين وإجمالي الكميات والمبالغ، مع الطباعة وPDF والمشاركة.</p>
+                <div id="statementsList" class="space-y-2"></div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- عارض الكشف -->
+    <div id="statementViewer" class="hidden fixed inset-0 z-50 bg-slate-200 overflow-auto">
+        <div class="no-print sticky top-0 z-10 bg-white border-b border-slate-300 p-2 shadow">
+            <div class="grid grid-cols-4 gap-1.5 text-[11px] font-semibold max-w-3xl mx-auto">
+                <button type="button" onclick="printStatement()" class="bg-slate-800 text-white py-2 rounded-lg">🖨️ طباعة</button>
+                <button type="button" onclick="downloadStatementPDF()" class="bg-rose-600 text-white py-2 rounded-lg">📄 تنزيل PDF</button>
+                <button type="button" onclick="shareStatementPDF()" class="bg-emerald-600 text-white py-2 rounded-lg">📤 مشاركة PDF</button>
+                <button type="button" onclick="copyStatementText()" class="bg-indigo-600 text-white py-2 rounded-lg">📋 نسخ نص</button>
+                <button type="button" onclick="whatsappStatement()" class="bg-teal-600 text-white py-2 rounded-lg">💬 واتساب</button>
+                <button type="button" data-permission="add" onclick="openAddLogFromStatement()" class="bg-indigo-50 border border-indigo-300 text-indigo-700 py-2 rounded-lg">➕ إضافة مستفيد</button>
+                <button type="button" data-permission="edit" onclick="askDeleteStatement()" class="bg-white border border-rose-300 text-rose-600 py-2 rounded-lg">🗑 حذف الكشف</button>
+                <button type="button" onclick="closeStatement()" class="bg-slate-100 border border-slate-300 text-slate-700 py-2 rounded-lg">✕ إغلاق</button>
+            </div>
+            <p id="stmtBusy" class="hidden text-center text-[11px] text-indigo-700 mt-1">جارٍ تجهيز الملف...</p>
+        </div>
+        <div id="statementScale" class="p-3 flex justify-center">
+            <div id="statementSheet"></div>
+        </div>
+    </div>
+
+    <!-- نافذة تأكيد حذف الكشف -->
+    <div id="deleteStatementModal" class="hidden fixed inset-0 bg-slate-900/60 flex items-center justify-center p-4" style="z-index:70">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-5 shadow-2xl border border-rose-200">
+            <h3 class="text-base font-bold text-rose-700 mb-2">⚠️ خيارات حذف الكشف</h3>
+            <p id="delStmtInfo" class="text-xs text-slate-700 leading-6 bg-rose-50 border border-rose-200 rounded-lg p-2.5 mb-3"></p>
+            
+            <div class="space-y-2 mb-3 text-xs">
+                <label class="flex items-start gap-2 p-2.5 rounded-lg border border-slate-200 bg-slate-50 cursor-pointer hover:border-indigo-300">
+                    <input type="radio" name="delStmtMode" value="logs_only" checked class="mt-0.5 w-4 h-4 text-indigo-600">
+                    <div>
+                        <span class="font-bold text-slate-800 block">حذف الكشف فقط (حركات الصرف)</span>
+                        <span class="text-[11px] text-slate-500">تبقى العطية مسجلة في قائمة العطايا ويمكن الصرف عليها مجدداً.</span>
+                    </div>
+                </label>
+                <label class="flex items-start gap-2 p-2.5 rounded-lg border border-rose-200 bg-rose-50/40 cursor-pointer hover:border-rose-400">
+                    <input type="radio" name="delStmtMode" value="with_grant" class="mt-0.5 w-4 h-4 text-rose-600">
+                    <div>
+                        <span class="font-bold text-rose-800 block">حذف الكشف مع العطية نهائياً</span>
+                        <span class="text-[11px] text-rose-600">يتم مسح العطية وجميع سجلات صرفها بالكامل من النظام.</span>
+                    </div>
+                </label>
+            </div>
+
+            <p class="text-[11px] text-slate-500 mb-3">لا يمكن التراجع عن هذا الإجراء. يُنصح بأخذ نسخة احتياطية أو تصدير PDF قبل الحذف.</p>
+            <label class="flex items-center gap-2 text-xs mb-4 cursor-pointer">
+                <input type="checkbox" id="delStmtAck" onchange="document.getElementById('delStmtBtn').disabled = !this.checked" class="w-4 h-4">
+                أفهم أن الحذف نهائي
+            </label>
+            <div class="flex gap-2">
+                <button type="button" onclick="closeDeleteStatement()" class="flex-1 bg-slate-100 border border-slate-300 text-slate-700 py-2 rounded-lg text-sm font-semibold">إلغاء</button>
+                <button type="button" id="delStmtBtn" onclick="confirmDeleteStatement()" disabled class="flex-1 bg-rose-600 text-white py-2 rounded-lg text-sm font-semibold disabled:opacity-40">تأكيد الحذف</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- نافذة إضافة مستفيد للكشف -->
+    <div id="addLogFromReportModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4" style="z-index:75">
+        <div class="bg-white rounded-2xl max-w-md w-full p-5 shadow-2xl border border-slate-100">
+            <div class="flex justify-between items-center mb-3 border-b border-slate-100 pb-2">
+                <h3 class="font-bold text-indigo-800 text-sm flex items-center gap-1.5">
+                    <span>➕</span> إضافة مستفيد للكشف
+                </h3>
+                <button type="button" onclick="closeAddLogFromReportModal()" class="text-slate-400 hover:text-rose-600 text-xl font-bold">&times;</button>
+            </div>
+
+            <div class="space-y-3 text-xs">
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">العطية المستهدفة *</label>
+                    <select id="repAddGrantSelect" onchange="onRepAddGrantChange()" class="w-full p-2 border border-slate-300 rounded-lg bg-indigo-50/50 font-semibold"></select>
+                </div>
+
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">ابحث عن المستفيد بالاسم أو المنطقة:</label>
+                    <input type="text" id="repAddBenSearch" oninput="filterRepAddBeneficiaries()" placeholder="اكتب جزءاً من الاسم لتصفية القائمة..." class="w-full p-2 border border-slate-300 rounded-lg mb-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <label class="block font-semibold text-slate-700 mb-1">اختر المستفيد *</label>
+                    <select id="repAddBenSelect" size="5" class="w-full p-2 border border-slate-300 rounded-lg bg-white"></select>
+                    <p id="repAddBenHint" class="text-[11px] text-slate-500 mt-1"></p>
+                </div>
+
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">الكمية الممنوحة *</label>
+                    <input type="number" id="repAddQuotaInput" value="1" min="1" class="w-full p-2 border border-slate-300 rounded-lg font-bold text-center">
+                </div>
+            </div>
+
+            <div class="flex gap-2 mt-4">
+                <button type="button" onclick="closeAddLogFromReportModal()" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 py-2.5 rounded-lg text-xs font-semibold">إلغاء</button>
+                <button type="button" onclick="saveLogFromReportModal()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-lg text-xs font-bold shadow-sm">إضافة وحفظ في الكشف</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- نافذة تأكيد الخروج -->
+    <div id="exitConfirmModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4" style="z-index:80">
+        <div class="bg-white rounded-2xl max-w-xs w-full p-5 shadow-2xl border border-slate-200 text-center">
+            <div class="w-12 h-12 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center mx-auto mb-3 text-2xl">🚪</div>
+            <h3 class="text-base font-bold text-slate-800 mb-1">تأكيد الخروج</h3>
+            <p class="text-xs text-slate-600 mb-4 leading-relaxed">هل تريد الخروج من التطبيق؟</p>
+            <div class="flex gap-2">
+                <button type="button" onclick="cancelExitApp()" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-lg text-xs font-bold">البقاء في التطبيق</button>
+                <button type="button" onclick="confirmExitApp()" class="flex-1 bg-rose-600 hover:bg-rose-700 text-white py-2 rounded-lg text-xs font-semibold">نعم، خروج</button>
+            </div>
+        </div>
+    </div>
+
+
+    <script src="../offline-sync.js"></script>
+    <!-- Firebase: Auth + Realtime Database -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+        import { getDatabase, ref, update, onValue, get } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
+        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+        import { createAtayaUser } from "./user-provisioning.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDCgspXEuju7E59g9VTdXUEjFMwjX3fnU8",
+            authDomain: "atayadata-e5810.firebaseapp.com",
+            databaseURL: "https://atayadata-e5810-default-rtdb.firebaseio.com",
+            projectId: "atayadata-e5810",
+            storageBucket: "atayadata-e5810.firebasestorage.app",
+            messagingSenderId: "839657864145",
+            appId: "1:839657864145:web:27c59021d2e0039c00fef0",
+            measurementId: "G-YHC584Q2ZB"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        const auth = getAuth(app);
+
+        const ROOT = 'atp_v2';
+        const OLD = 'atp_data';
+        const offline = window.AtayaOffline;
+        let ready = false;
+        let connected = false;
+        let sending = false;
+        let migrationChecked = false;
+        window.fbPermissionRecords = {};
+        const key = id => String(id).replace(/[.#$\[\]\/]/g, '_');
+        const toArr = v => {
+            if (!v) return [];
+            const entries = Array.isArray(v)
+                ? v.map((item, idx) => [String(idx), item]).filter(([, item]) => Boolean(item))
+                : Object.entries(v).filter(([, item]) => Boolean(item));
+            return entries.map(([fbKey, item]) => ({ ...item, _fbKey: fbKey }))
+                          .sort((a, b) => Number(b.id) - Number(a.id));
+        };
+
+        window.fbSetBadge = (state) => {
+            const badge = document.getElementById('cloudStatusBadge');
+            if (!badge) return;
+            const count = offline.account ? offline.pendingCount() : 0;
+            const modes = {
+                ok: ['bg-emerald-400', 'متصل ومتزامن', 'bg-emerald-900/60 border-emerald-400/40'],
+                pending: ['bg-amber-400', 'بانتظار رفع ' + count + ' تعديل', 'bg-amber-900/60 border-amber-400/40'],
+                error: ['bg-rose-400', count ? 'محلي - ' + count + ' تعديل محفوظ' : 'محلي - دون اتصال', 'bg-rose-900/60 border-rose-400/40'],
+                connecting: ['bg-amber-400', 'الربط بالسحابة...', 'bg-indigo-900/60 border-indigo-400/40']
+            };
+            const m = modes[state] || modes.connecting;
+            badge.innerHTML = '<span class="inline-block w-2 h-2 rounded-full ' + m[0] + '"></span> ' + m[1];
+            badge.className = 'text-[10px] ' + m[2] + ' border px-2 py-0.5 rounded-full flex items-center gap-1';
+        };
+        function refreshBadge() {
+            window.fbSetBadge(!connected ? 'error' : offline.pendingCount() ? 'pending' : ready ? 'ok' : 'connecting');
+        }
+        window.fbSignOut = () => signOut(auth);
+        window.fbPermissionUpdate = updates => {
+            if (!connected) return Promise.reject(new Error('يلزم الاتصال بالإنترنت لتعديل الصلاحيات'));
+            return update(ref(db, ROOT), updates);
+        };
+        window.fbCreateAtayaUser = options => {
+            if (!connected) return Promise.reject(new Error('إنشاء المستخدم يتطلب اتصالًا بالإنترنت.'));
+            return createAtayaUser({firebaseConfig, auth, db, root: ROOT, ...options});
+        };
+
+        async function flushPending() {
+            if (!ready || !connected || sending || !offline.pendingCount()) {
+                refreshBadge();
+                return;
+            }
+            sending = true;
+            try {
+                while (connected && offline.pendingCount()) {
+                    const batch = offline.nextBatch();
+                    const changes = { ...batch.patch, lastUpdated: new Date().toISOString() };
+                    await update(ref(db, ROOT), changes);
+                    offline.acknowledge(batch);
+                    refreshBadge();
+                }
+            } catch (error) {
+                console.error('تعذر رفع التعديلات المحلية، ستُعاد المحاولة:', error);
+                window.fbSetBadge('error');
+            } finally {
+                sending = false;
+                refreshBadge();
+            }
+        }
+
+        window.fbPush = async function () {
+            if (!offline.account) return;
+            offline.stage({ beneficiaries, grants, distributionLogs });
+            refreshBadge();
+            return flushPending();
+        };
+
+        function applyAndRender(d) {
+            beneficiaries = toArr(d.beneficiaries);
+            grants = toArr(d.grants);
+            distributionLogs = toArr(d.distributionLogs);
+            offline.saveLocal({ beneficiaries, grants, distributionLogs });
+            renderBeneficiaries();
+            renderGrants();
+            updateCategoryDropdowns();
+            if (document.getElementById('distributeSection').classList.contains('active-section')) loadDistributionList();
+            if (document.getElementById('reportsSection').classList.contains('active-section')) renderFilteredLogs();
+            if (document.getElementById('statementsSection').classList.contains('active-section')) renderStatementsList();
+            if (!document.getElementById('statementViewer').classList.contains('hidden')) refreshStatement();
+        }
+
+        async function migratePreviousRoot() {
+            if (migrationChecked || !connected) return;
+            migrationChecked = true;
+            try {
+                const previous = await get(ref(db, OLD));
+                if (!previous.exists() || offline.pendingCount()) return;
+                const current = offline.localData();
+                if (current.beneficiaries.length || current.grants.length || current.distributionLogs.length) return;
+                const d = previous.val();
+                beneficiaries = toArr(d.beneficiaries);
+                grants = toArr(d.grants);
+                distributionLogs = toArr(d.distributionLogs);
+                offline.saveLocal({ beneficiaries, grants, distributionLogs });
+                await window.fbPush();
+                applyAndRender({ beneficiaries, grants, distributionLogs });
+            } catch (error) {
+                console.warn('Legacy database migration deferred:', error);
+                migrationChecked = false;
+            }
+        }
+
+        let started = false;
+        function start() {
+            if (started) return;
+            started = true;
+            const rootRef = ref(db, ROOT);
+            onValue(ref(db, '.info/connected'), snapshot => {
+                connected = snapshot.val() === true;
+                refreshBadge();
+                if (connected) flushPending();
+            }, error => {
+                connected = false;
+                console.warn('Firebase connection status:', error);
+                refreshBadge();
+            });
+            onValue(rootRef, snapshot => {
+                // RTDB may emit speculative local events; only accept a confirmed connection
+                // as the new server baseline, to protect saved offline edits.
+                if (!connected) { refreshBadge(); return; }
+                const rootData = snapshot.val() || {};
+                offline.savePermissions(rootData.permissions || {});
+                window.permissionSnapshotLoaded = true;
+                window.setPermissionRecords && window.setPermissionRecords(rootData.permissions || {});
+                const merged = offline.applyServer(rootData);
+                applyAndRender(merged);
+                ready = true;
+                refreshBadge();
+                if (!snapshot.exists()) migratePreviousRoot();
+                flushPending();
+            }, error => {
+                console.error('Firebase Sync Error:', error);
+                window.fbSetBadge('error');
+            });
+        }
+
+        onAuthStateChanged(auth, user => {
+            if (!user) { window.location.replace('login.html'); return; }
+            offline.initialize(user.uid);
+            loggedUser = user.displayName || (user.email || '').split('@')[0] || 'مسؤول';
+            window.currentUserEmail = (user.email || '').toLowerCase();
+            window.currentUserUid = user.uid;
+            const savedPermissions = offline.cachedPermissions();
+            window.permissionSnapshotLoaded = savedPermissions.verified === true;
+            window.setPermissionRecords && window.setPermissionRecords(savedPermissions.records || {});
+            window.offlineRestoreForUser && window.offlineRestoreForUser();
+            const el = document.getElementById('displayUserName');
+            if (el) el.innerText = loggedUser;
+            document.documentElement.style.visibility = 'visible';
+            refreshBadge();
+            start();
+        });
+    </script>
+
+
+    <script>
+        let _uidSeq = 0;
+        function uidGen() {
+            return (Date.now() * 1000) + ((++_uidSeq) % 1000);
+        }
+
+        let loggedUser = 'مسؤول';
+        const displayElem = document.getElementById('displayUserName');
+        if (displayElem) displayElem.innerText = loggedUser;
+
+        document.getElementById('reportPrintDate').innerText = new Date().toLocaleDateString('ar-YE');
+
+        let beneficiaries = [];
+        let grants = [];
+        let distributionLogs = [];
+
+        window.offlineRestoreForUser = () => {
+            const d = window.AtayaOffline.localData();
+            beneficiaries = Array.isArray(d.beneficiaries) ? d.beneficiaries : [];
+            grants = Array.isArray(d.grants) ? d.grants : [];
+            distributionLogs = Array.isArray(d.distributionLogs) ? d.distributionLogs : [];
+            renderBeneficiaries();
+            renderGrants();
+            updateCategoryDropdowns();
+        };
+        let currentFilteredLogs = [];
+        let activeSectionId = 'beneficiariesSection';
+
+        let selectedBenIds = new Set();
+        let customQuotas = {};
+
+        let permissionRecords = {};
+        let permissionState = { view: true, add: false, edit: false, reports: false, admin: false, bootstrap: false };
+        const permissionKey = value => String(value || '').trim().toLowerCase().replace(/[.#$\[\]\/]/g, '_').replace(/@/g, '_at_');
+        const normalizePermissionEmail = value => { const v = String(value || '').trim().toLowerCase(); return v.includes('@') ? v : `${v}@ataya.local`; };
+        function currentPermission() {
+            const email = window.currentUserEmail || '';
+            const all = Object.values(window.fbPermissionRecords || {});
+            const record = (window.fbPermissionRecords || {})[permissionKey(email)] || all.find(x => String(x.email || '').toLowerCase() === email);
+            if (record) return { view: record.view !== false, add: record.add === true, edit: record.edit === true, reports: record.reports === true, admin: record.admin === true };
+            const hasAdmin = all.some(x => x.admin === true);
+            if (!window.permissionSnapshotLoaded) return { view: false, add: false, edit: false, reports: false, admin: false, bootstrap: false };
+            const bootstrap = !all.length || !hasAdmin;
+            return { view: true, add: bootstrap, edit: bootstrap, reports: bootstrap, admin: bootstrap, bootstrap };
+        }
+        function can(action) { const p = permissionState; return action === 'view' ? p.view : p.admin || p[action] === true; }
+        function requirePermission(action) { if (can(action)) return true; alert(action === 'add' ? 'ليس لديك صلاحية الإضافة.' : action === 'edit' ? 'ليس لديك صلاحية التعديل أو الحذف.' : 'ليس لديك صلاحية الاطلاع.'); return false; }
+        window.setPermissionRecords = records => { window.fbPermissionRecords = records || {}; permissionRecords = window.fbPermissionRecords; permissionState = currentPermission(); applyPermissionUI(); renderPermissions(); };
+
+        function applyPermissionUI() {
+            document.querySelectorAll('[data-permission]').forEach(el => {
+                const ok = can(el.dataset.permission);
+                el.classList.toggle('hidden', !ok);
+                if ('disabled' in el) el.disabled = !ok;
+            });
+            const adminNav = document.getElementById('nav-permissionsSection');
+            if (adminNav) adminNav.classList.toggle('hidden', !permissionState.admin);
+
+            const reportsAllowed = permissionState.admin || permissionState.reports;
+            ['nav-reportsSection', 'nav-statementsSection'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.classList.toggle('hidden', !permissionState.view || !reportsAllowed);
+            });
+
+            if (!permissionState.view) {
+                document.querySelectorAll('main > section').forEach(s => {
+                    s.classList.remove('active-section');
+                    s.classList.add('hidden-section');
+                });
+                return;
+            }
+
+            if ((activeSectionId === 'reportsSection' || activeSectionId === 'statementsSection') && !reportsAllowed) {
+                showSection('beneficiariesSection');
+            } else if (activeSectionId === 'permissionsSection' && !permissionState.admin) {
+                showSection('beneficiariesSection');
+            }
+        }
+
+        function renderPermissions() {
+            const list = document.getElementById('permissionsList'); if (!list) return;
+            if (!permissionState.admin) { list.innerHTML = ''; return; }
+            const rows = Object.values(window.fbPermissionRecords || {});
+            list.innerHTML = rows.length ? rows.map(r => `<div class="flex flex-wrap justify-between items-center gap-2 p-2 rounded-lg bg-slate-50 border border-slate-200 text-xs"><b dir="ltr">${r.email}</b><span>${r.admin ? 'مدير' : [r.view?'اطلاع بيانات':'',r.add?'إضافة':'',r.edit?'تعديل':'',r.reports?'تقارير وكشوفات':''].filter(Boolean).join('، ') || 'بدون صلاحيات'}</span><button type="button" onclick="removeUserPermission('${permissionKey(r.email)}')" class="text-rose-600 hover:underline">حذف</button></div>`).join('') : '<p class="text-xs text-slate-400">لا توجد صلاحيات مضافة بعد.</p>';
+        }
+        async function saveUserPermission(e) {
+            e.preventDefault();
+            if (!permissionState.admin) return alert('إدارة المستخدمين متاحة لمدير الصلاحيات فقط.');
+            const form = e.currentTarget;
+            const create = e.submitter?.value !== 'existing';
+            const raw = document.getElementById('permissionEmail').value.trim();
+            if (!raw) return alert('أدخل اسم المستخدم أو البريد الإلكتروني.');
+            const email = normalizePermissionEmail(raw);
+            if (!email.includes('@') || [...email].some(ch => ch.charCodeAt(0) <= 32) || !email.slice(email.indexOf('@') + 1).includes('.')) return alert('اسم المستخدم أو البريد غير صالح.');
+            const password = document.getElementById('permissionPassword').value;
+            const confirmation = document.getElementById('permissionPasswordConfirm').value;
+            if (create && password.length < 8) return alert('كلمة المرور يجب ألا تقل عن 8 أحرف.');
+            if (create && password !== confirmation) return alert('كلمتا المرور غير متطابقتين.');
+            if (create && email === window.currentUserEmail) return alert('الحساب موجود بالفعل؛ استخدم حفظ صلاحيات حساب موجود.');
+            const key = permissionKey(email);
+            const existing = (window.fbPermissionRecords || {})[key];
+            if (create && existing) return alert('هذا المستخدم موجود في قائمة الصلاحيات؛ استخدم حفظ صلاحيات حساب موجود.');
+            const record = {
+                email, view: document.getElementById('permissionView').checked,
+                add: document.getElementById('permissionAdd').checked,
+                edit: document.getElementById('permissionEdit').checked,
+                admin: document.getElementById('permissionAdmin').checked,
+                reports: document.getElementById('permissionReports').checked,
+                updatedBy: loggedUser, updatedAt: new Date().toISOString()
+            };
+            if (!create && existing?.uid) record.uid = existing.uid;
+            const updates = { ['permissions/' + key]: record };
+            if (permissionState.bootstrap && window.currentUserEmail) {
+                updates['permissions/' + permissionKey(window.currentUserEmail)] = {
+                    email: window.currentUserEmail, uid: window.currentUserUid,
+                    view: true, add: true, edit: true, reports: true, admin: true,
+                    updatedBy: loggedUser, updatedAt: new Date().toISOString()
+                };
+            }
+            const buttons = [...form.querySelectorAll('button[type="submit"]')];
+            buttons.forEach(b => b.disabled = true);
+            try {
+                if (create) {
+                    if (!window.fbCreateAtayaUser) throw new Error('خدمة إنشاء الحسابات غير متاحة.');
+                    await window.fbCreateAtayaUser({email, password, record, key, otherUpdates: updates});
+                    alert('تم إنشاء حساب الدخول وكلمة المرور وحفظ الصلاحيات بنجاح.');
+                } else {
+                    await window.fbPermissionUpdate(updates);
+                    alert('تم حفظ صلاحيات الحساب الموجود. لم تتغير كلمة مروره.');
+                }
+                form.reset();
+                document.getElementById('permissionView').checked = true;
+            } catch (error) {
+                console.error('Ataya user management:', error);
+                const errors = {
+                    'auth/email-already-in-use': 'اسم المستخدم مسجل مسبقًا في Firebase. اختر حفظ صلاحيات حساب موجود.',
+                    'auth/weak-password': 'كلمة المرور ضعيفة؛ اختر كلمة أقوى.',
+                    'auth/invalid-email': 'اسم المستخدم أو البريد غير صالح.',
+                    'auth/operation-not-allowed': 'يجب تفعيل تسجيل الدخول بالبريد وكلمة المرور في Firebase.',
+                    'auth/network-request-failed': 'تعذر الاتصال بالإنترنت.'
+                };
+                alert(error.accountMayExistWithoutPermissions
+                    ? 'تم إنشاء الحساب، لكن تعذر حفظ الصلاحيات أو إلغاء الحساب الجديد. راجع الحساب في Firebase قبل إعادة المحاولة.'
+                    : errors[error.code] || error.message || 'تعذر إنشاء الحساب. تحقق من الاتصال وقواعد أمان Firebase.');
+            } finally {
+                buttons.forEach(b => b.disabled = false);
+                document.getElementById('permissionPassword').value = '';
+                document.getElementById('permissionPasswordConfirm').value = '';
+            }
+        }
+        async function removeUserPermission(k) { if (!permissionState.admin || !confirm('حذف صلاحيات المستخدم؟ سيبقى حساب الدخول موجودًا في Firebase Authentication.')) return; const updates = {}; updates[`permissions/${k}`] = null; try { await window.fbPermissionUpdate(updates); } catch (_) { alert('تعذر حذف الصلاحية.'); } }
+
+        function logoutUser() {
+            if (window.fbSignOut) window.fbSignOut().finally(() => window.location.replace('login.html'));
+            else window.location.replace('login.html');
+        }
+
+        // ================= شاشة تأكيد الخروج والتراجع =================
+        let allowExitNavigation = false;
+        function pushExitGuardState() {
+            try {
+                history.pushState({ atayaExitGuard: true }, '', window.location.href);
+            } catch (_) {}
+        }
+
+        function setupBackNavigationGuard() {
+            pushExitGuardState();
+            window.addEventListener('popstate', () => {
+                if (allowExitNavigation) return;
+
+                const stmtViewer = document.getElementById('statementViewer');
+                const delStmtModal = document.getElementById('deleteStatementModal');
+                const addRepModal = document.getElementById('addLogFromReportModal');
+                const backupMdl = document.getElementById('backupModal');
+
+                if (delStmtModal && !delStmtModal.classList.contains('hidden')) {
+                    closeDeleteStatement();
+                    pushExitGuardState();
+                    return;
+                }
+                if (addRepModal && !addRepModal.classList.contains('hidden')) {
+                    closeAddLogFromReportModal();
+                    pushExitGuardState();
+                    return;
+                }
+                if (stmtViewer && !stmtViewer.classList.contains('hidden')) {
+                    closeStatement();
+                    pushExitGuardState();
+                    return;
+                }
+                if (backupMdl && !backupMdl.classList.contains('hidden')) {
+                    closeBackupModal();
+                    pushExitGuardState();
+                    return;
+                }
+
+                const exitModal = document.getElementById('exitConfirmModal');
+                if (exitModal) exitModal.classList.remove('hidden');
+                pushExitGuardState();
+            });
+        }
+
+        function cancelExitApp() {
+            const exitModal = document.getElementById('exitConfirmModal');
+            if (exitModal) exitModal.classList.add('hidden');
+        }
+
+        function confirmExitApp() {
+            allowExitNavigation = true;
+            const exitModal = document.getElementById('exitConfirmModal');
+            if (exitModal) exitModal.classList.add('hidden');
+            if (history.length > 2) {
+                history.go(-2);
+            } else {
+                window.close();
+                setTimeout(() => { history.back(); }, 150);
+            }
+        }
+
+        function syncToFirebase() {
+            try {
+                window.AtayaOffline.saveLocal({ beneficiaries, grants, distributionLogs });
+                if (!window.fbPush) return Promise.resolve(true);
+                return window.fbPush().then(() => true).catch(err => {
+                    console.error('تعذر حفظ التعديلات في قائمة المزامنة:', err);
+                    alert('تعذر حفظ التعديلات في قائمة المزامنة؛ تحقق من مساحة الجهاز.');
+                    return false;
+                });
+            } catch (err) {
+                console.error('تعذر حفظ البيانات محلياً:', err);
+                alert('تعذر حفظ البيانات محلياً؛ قد تكون مساحة المتصفح ممتلئة.');
+                return Promise.resolve(false);
+            }
+        }
+
+        function normalizeArabic(text) {
+            if (!text) return '';
+            return text.toString()
+                .trim()
+                .replace(/[\u064B-\u065F\u0670]/g, '')
+                .replace(/[أإآٱ]/g, 'ا')
+                .replace(/ة/g, 'ه')
+                .replace(/ى/g, 'ي')
+                .replace(/ؤ/g, 'و')
+                .replace(/ئ/g, 'ي')
+                .replace(/\s+/g, ' ')
+                .toLowerCase();
+        }
+
+        function sortBeneficiariesList(arr, sortMode) {
+            const copy = [...arr];
+            if (sortMode === 'alpha') {
+                return copy.sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'ar'));
+            }
+            if (sortMode === 'need_desc') {
+                return copy.sort((a, b) => {
+                    const na = (a.needPercent !== null && a.needPercent !== undefined && a.needPercent !== '') ? Number(a.needPercent) : -Infinity;
+                    const nb = (b.needPercent !== null && b.needPercent !== undefined && b.needPercent !== '') ? Number(b.needPercent) : -Infinity;
+                    if (nb !== na) return nb - na;
+                    return String(a.name || '').localeCompare(String(b.name || ''), 'ar');
+                });
+            }
+            if (sortMode === 'need_asc') {
+                return copy.sort((a, b) => {
+                    const na = (a.needPercent !== null && a.needPercent !== undefined && a.needPercent !== '') ? Number(a.needPercent) : Infinity;
+                    const nb = (b.needPercent !== null && b.needPercent !== undefined && b.needPercent !== '') ? Number(b.needPercent) : Infinity;
+                    if (na !== nb) return na - nb;
+                    return String(a.name || '').localeCompare(String(b.name || ''), 'ar');
+                });
+            }
+            return copy.sort((a, b) => Number(b.id) - Number(a.id));
+        }
+
+        function showSection(sectionId) {
+            if (sectionId === 'permissionsSection' && !permissionState.admin) return alert('هذه الصفحة متاحة لمدير الصلاحيات فقط.');
+            if (!permissionState.view) return alert('ليس لديك صلاحية الاطلاع.');
+            if ((sectionId === 'reportsSection' || sectionId === 'statementsSection') && !permissionState.admin && !permissionState.reports) return alert('ليس لديك صلاحية عرض التقارير والكشوفات.');
+
+            activeSectionId = sectionId;
+
+            document.querySelectorAll('main > section').forEach(s => {
+                s.classList.remove('active-section');
+                s.classList.add('hidden-section');
+            });
+
+            document.querySelectorAll('.nav-btn').forEach(b => {
+                b.classList.remove('bg-indigo-600', 'text-white');
+                b.classList.add('bg-white', 'text-slate-700');
+            });
+
+            const targetSection = document.getElementById(sectionId);
+            if (targetSection) {
+                targetSection.classList.remove('hidden-section');
+                targetSection.classList.add('active-section');
+            }
+
+            const activeBtn = document.getElementById('nav-' + sectionId);
+            if (activeBtn) {
+                activeBtn.classList.remove('bg-white', 'text-slate-700');
+                activeBtn.classList.add('bg-indigo-600', 'text-white');
+            }
+
+            if (sectionId === 'beneficiariesSection') renderBeneficiaries();
+            if (sectionId === 'grantsSection') renderGrants();
+            if (sectionId === 'statementsSection') renderStatementsList();
+            if (sectionId === 'distributeSection') initDistributeSection();
+            if (sectionId === 'reportsSection') initReportsSection();
+            if (sectionId === 'permissionsSection') renderPermissions();
+        }
+
+        // ================= النسخ الاحتياطي =================
+        function openBackupModal() {
+            const clientId = localStorage.getItem('alata_google_client_id');
+            if (clientId) document.getElementById('googleClientId').value = clientId;
+            document.getElementById('backupModal').classList.remove('hidden');
+        }
+
+        function closeBackupModal() {
+            document.getElementById('backupModal').classList.add('hidden');
+        }
+
+        function getFullBackupData() {
+            return {
+                version: '1.7',
+                exportDate: new Date().toISOString(),
+                beneficiaries,
+                grants,
+                distributionLogs
+            };
+        }
+
+        function exportBackupData() {
+            const fullData = getFullBackupData();
+            const dataStr = "data:application/json;charset=utf-8," + encodeURIComponent(JSON.stringify(fullData, null, 2));
+            const anchor = document.createElement('a');
+            const dateStr = todayLocal();
+            anchor.href = dataStr;
+            anchor.download = `نسخة_احتياطية_العطايا_${dateStr}.json`;
+            anchor.click();
+            alert('تم تجهيز ملف النسخة الاحتياطية للتنزيل اليدوي.');
+        }
+
+        function getGoogleClientId() {
+            const input = document.getElementById('googleClientId');
+            const value = input?.value.trim() || localStorage.getItem('alata_google_client_id') || '';
+            if (value && input) {
+                input.value = value;
+                localStorage.setItem('alata_google_client_id', value);
+            }
+            return value;
+        }
+
+        function makeBackupBlob() {
+            return new Blob([JSON.stringify(getFullBackupData(), null, 2)], { type: 'application/json' });
+        }
+
+        async function uploadBackupToGoogleDrive() {
+            const clientId = getGoogleClientId();
+            if (!clientId) return alert('أدخل معرّف عميل Google (Client ID) أولًا.');
+            if (!window.google?.accounts?.oauth2) return alert('تعذر تحميل خدمة تسجيل الدخول إلى Google. تحقق من الاتصال بالإنترنت.');
+
+            const tokenClient = google.accounts.oauth2.initTokenClient({
+                client_id: clientId,
+                scope: 'https://www.googleapis.com/auth/drive.file',
+                callback: async (tokenResponse) => {
+                    if (tokenResponse.error) return alert('تعذر الحصول على إذن Google Drive.');
+                    try {
+                        const dateStr = todayLocal();
+                        const metadata = { name: `نسخة_احتياطية_العطايا_${dateStr}.json`, mimeType: 'application/json' };
+                        const boundary = '-------alataBackupBoundary';
+                        const blob = makeBackupBlob();
+                        const body = new Blob([
+                            `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n`,
+                            JSON.stringify(metadata), `\r\n--${boundary}\r\nContent-Type: application/json\r\n\r\n`,
+                            blob, `\r\n--${boundary}--`
+                        ]);
+                        const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,webViewLink', {
+                            method: 'POST',
+                            headers: { Authorization: `Bearer ${tokenResponse.access_token}`, 'Content-Type': `multipart/related; boundary=${boundary}` },
+                            body
+                        });
+                        if (!response.ok) throw new Error(await response.text());
+                        const uploaded = await response.json();
+                        alert(`تم رفع النسخة الاحتياطية مباشرة إلى Google Drive بنجاح.\nاسم الملف: ${uploaded.name}`);
+                    } catch (error) {
+                        console.error(error);
+                        alert('فشل رفع النسخة إلى Google Drive.');
+                    }
+                }
+            });
+            tokenClient.requestAccessToken({ prompt: '' });
+        }
+
+        function importBackupData(event) {
+            if (!requirePermission("edit")) return;
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const parsed = JSON.parse(e.target.result);
+                    if (!parsed.beneficiaries || !parsed.grants || !parsed.distributionLogs) {
+                        return alert('ملف النسخة الاحتياطية غير صالح.');
+                    }
+
+                    if (confirm(`الملف يحتوي على:\n- ${parsed.beneficiaries.length} مستفيد\n- ${parsed.grants.length} عطية\n- ${parsed.distributionLogs.length} حركة صرف\nهل ترغب في استبدال البيانات الحالية بهذه النسخة ورفعها للسحابة؟`)) {
+                        beneficiaries = parsed.beneficiaries;
+                        grants = parsed.grants;
+                        distributionLogs = parsed.distributionLogs;
+
+                        syncToFirebase().then(saved => {
+                            if (!saved) return;
+                            alert('تم استرجاع البيانات محلياً. ستُزامَن مع السحابة عند توفر الاتصال.');
+                            closeBackupModal();
+                            location.reload();
+                        });
+                    }
+                } catch (err) {
+                    alert('تعذر قراءة ملف النسخة الاحتياطية.');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // ================= استيراد الإكسل =================
+        function importExcel(event) {
+            if (!requirePermission("add")) return;
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+
+                    if (!rows || rows.length === 0) return alert('الملف فارغ.');
+
+                    let nameIdx = 0, areaIdx = 1, phoneIdx = 2, famIdx = 3, needIdx = 4, catIdx = 5;
+                    let startRow = 0;
+
+                    const headerRow = rows[0].map(cell => (cell ? cell.toString().trim() : ''));
+                    const foundName = headerRow.findIndex(h => h.includes('اسم') || h.toLowerCase() === 'name');
+                    if (foundName !== -1) {
+                        startRow = 1;
+                        nameIdx = foundName;
+                        const foundArea = headerRow.findIndex(h => h.includes('منطق') || h.includes('حي') || h.toLowerCase() === 'area');
+                        if (foundArea !== -1) areaIdx = foundArea;
+                        const foundPhone = headerRow.findIndex(h => h.includes('هاتف') || h.includes('تواصل') || h.includes('جوال') || h.toLowerCase() === 'phone');
+                        if (foundPhone !== -1) phoneIdx = foundPhone;
+                        const foundFam = headerRow.findIndex(h => h.includes('أفراد') || h.includes('اسر') || h.includes('أسر') || h.toLowerCase() === 'family');
+                        if (foundFam !== -1) famIdx = foundFam;
+                        const foundNeed = headerRow.findIndex(h => h.includes('نسب') || h.includes('احتياج') || h.toLowerCase() === 'need');
+                        if (foundNeed !== -1) needIdx = foundNeed;
+                        const foundCat = headerRow.findIndex(h => h.includes('فئ') || h.includes('فئة') || h.toLowerCase() === 'category');
+                        if (foundCat !== -1) catIdx = foundCat;
+                    }
+
+                    let addedCount = 0;
+                    let skippedCount = 0;
+
+                    for (let i = startRow; i < rows.length; i++) {
+                        const row = rows[i];
+                        if (!row || row.length === 0) continue;
+
+                        const rawName = row[nameIdx] ? row[nameIdx].toString().trim() : '';
+                        if (!rawName || rawName === 'الاسم' || rawName === 'اسم المستفيد') continue;
+
+                        const normNew = normalizeArabic(rawName);
+                        const isDuplicate = beneficiaries.some(b => normalizeArabic(b.name) === normNew);
+                        if (isDuplicate) {
+                            skippedCount++;
+                            continue;
+                        }
+
+                        const areaVal = row[areaIdx] ? row[areaIdx].toString().trim() : 'غير محدد';
+                        const phoneVal = row[phoneIdx] ? row[phoneIdx].toString().trim() : '-';
+                        const famVal = row[famIdx] !== undefined && row[famIdx] !== '' ? row[famIdx].toString().trim() : '-';
+                        
+                        let needVal = null;
+                        if (row[needIdx] !== undefined && row[needIdx] !== '') {
+                            const parsedNeed = parseFloat(row[needIdx].toString().replace('%', '').trim());
+                            if (!isNaN(parsedNeed)) needVal = parsedNeed;
+                        }
+
+                        const catVal = row[catIdx] ? row[catIdx].toString().trim() : 'عام';
+
+                        beneficiaries.unshift({
+                            id: uidGen(),
+                            name: rawName,
+                            area: areaVal,
+                            phone: phoneVal,
+                            familyCount: famVal,
+                            needPercent: needVal,
+                            category: catVal
+                        });
+                        addedCount++;
+                    }
+
+                    syncToFirebase();
+                    alert(`تم استيراد (${addedCount}) مستفيد بنجاح.\nتم تجاهل (${skippedCount}) اسم مكرر تلقائياً.`);
+                    renderBeneficiaries();
+                    updateCategoryDropdowns();
+                } catch (err) {
+                    alert('حدث خطأ أثناء قراءة ملف الإكسل.');
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        // ================= إدارة المستفيدين =================
+        function saveBeneficiary(e) {
+            e.preventDefault();
+            const editId = document.getElementById('editBenId').value;
+            if (!requirePermission(editId ? "edit" : "add")) return;
+            const rawName = document.getElementById('benName').value.trim();
+            const normNew = normalizeArabic(rawName);
+            const needVal = document.getElementById('benNeedPercent').value;
+
+            const duplicate = beneficiaries.find(b => normalizeArabic(b.name) === normNew && String(b.id) !== String(editId));
+            if (duplicate) {
+                return alert(`تنبيه: هذا الاسم مسجل مسبقاً في النظام باسم: (${duplicate.name})، يرجى التحقق.`);
+            }
+            
+            const benData = {
+                name: rawName,
+                area: document.getElementById('benArea').value.trim() || 'غير محدد',
+                phone: document.getElementById('benPhone').value.trim() || '-',
+                familyCount: document.getElementById('benFamilyCount').value || '-',
+                needPercent: needVal !== '' ? Number(needVal) : null,
+                category: window.AtayaCategories?.canonicalCategory(document.getElementById('benCategory').value) || 'عام'
+            };
+
+            if (editId) {
+                const index = beneficiaries.findIndex(b => String(b.id) === String(editId));
+                if (index !== -1) {
+                    beneficiaries[index] = { ...beneficiaries[index], ...benData };
+                    alert('تم تحديث بيانات المستفيد بنجاح.');
+                }
+            } else {
+                beneficiaries.unshift({ id: uidGen(), ...benData });
+                alert('تم تسجيل المستفيد بنجاح.');
+            }
+
+            syncToFirebase();
+            resetBenForm();
+            renderBeneficiaries();
+            updateCategoryDropdowns();
+        }
+
+        function editBeneficiary(id) {
+            if (!requirePermission("edit")) return;
+            const ben = beneficiaries.find(b => String(b.id) === String(id));
+            if (!ben) return;
+
+            document.getElementById('editBenId').value = ben.id;
+            document.getElementById('benName').value = ben.name;
+            document.getElementById('benArea').value = ben.area === 'غير محدد' ? '' : ben.area;
+            document.getElementById('benPhone').value = ben.phone === '-' ? '' : ben.phone;
+            document.getElementById('benFamilyCount').value = ben.familyCount === '-' ? '' : ben.familyCount;
+            document.getElementById('benNeedPercent').value = ben.needPercent !== null ? ben.needPercent : '';
+            document.getElementById('benCategory').value = ben.category;
+
+            document.getElementById('benFormTitle').innerText = 'تعديل بيانات مستفيد';
+            document.getElementById('benSubmitBtn').innerText = 'تحديث البيانات';
+            document.getElementById('benSubmitBtn').classList.replace('bg-indigo-600', 'bg-amber-600');
+            document.getElementById('cancelBenEditBtn').classList.remove('hidden');
+
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function resetBenForm() {
+            document.getElementById('benForm').reset();
+            document.getElementById('editBenId').value = '';
+            document.getElementById('benFormTitle').innerText = 'إضافة مستفيد جديد';
+            document.getElementById('benSubmitBtn').innerText = 'حفظ المستفيد في السجل';
+            document.getElementById('benSubmitBtn').classList.replace('bg-amber-600', 'bg-indigo-600');
+            document.getElementById('cancelBenEditBtn').classList.add('hidden');
+        }
+
+        function deleteBeneficiary(id) {
+            if (!requirePermission("edit")) return;
+            if (!confirm('هل أنت متأكد من حذف هذا المستفيد؟ سيتم أيضاً إزالته من كشوفات العطايا المرتبطة.')) return;
+            beneficiaries = beneficiaries.filter(b => String(b.id) !== String(id));
+            distributionLogs = distributionLogs.filter(l => String(l.beneficiaryId) !== String(id));
+            selectedBenIds.delete(String(id));
+            syncToFirebase();
+            renderBeneficiaries();
+            updateCategoryDropdowns();
+        }
+
+        function renderBeneficiaries() {
+            const list = document.getElementById('beneficiariesList');
+            const search = normalizeArabic(document.getElementById('searchBen')?.value || '');
+            const sortMode = document.getElementById('sortBenSelect')?.value || 'alpha';
+            document.getElementById('totalBenCount').innerText = beneficiaries.length;
+
+            let filtered = beneficiaries.filter(b => 
+                (b.name && normalizeArabic(b.name).includes(search)) || 
+                (b.area && normalizeArabic(b.area).includes(search)) ||
+                (b.category && normalizeArabic(b.category).includes(search))
+            );
+
+            filtered = sortBeneficiariesList(filtered, sortMode);
+
+            if (filtered.length === 0) {
+                list.innerHTML = `<p class="text-center text-xs text-slate-400 py-4">لا توجد بيانات مسجلة.</p>`;
+                return;
+            }
+
+            list.innerHTML = filtered.map(b => `
+                <div class="p-2.5 rounded-lg border border-slate-100 hover:border-slate-300 bg-slate-50 flex justify-between items-center text-xs">
+                    <div>
+                        <div class="font-bold text-slate-800">${b.name}</div>
+                        <div class="text-slate-500 mt-0.5 flex flex-wrap gap-2">
+                            <span>المنطقة: <b>${b.area}</b></span>
+                            <span>الأسرة: <b>${b.familyCount}</b></span>
+                            ${b.needPercent !== null && b.needPercent !== undefined ? `<span class="bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-bold">الاحتياج: ${b.needPercent}%</span>` : ''}
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="bg-slate-200 text-slate-700 px-2 py-0.5 rounded text-[10px]">${b.category}</span>
+                        ${can('edit') ? `<button type="button" onclick="editBeneficiary('${b.id}')" class="text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-2 py-1 rounded text-[11px] font-semibold">تعديل</button>
+                        <button type="button" onclick="deleteBeneficiary('${b.id}')" class="text-rose-600 bg-rose-50 hover:bg-rose-100 px-2 py-1 rounded text-[11px] font-semibold">حذف</button>` : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function updateCategoryDropdowns() {
+            const categories = [...new Set(beneficiaries.map(b => String(b.category || '').trim()).filter(Boolean))]
+                .sort((a, b) => a.localeCompare(b, 'ar'));
+
+            // Create options with textContent, never interpolate user-entered category names into HTML.
+            function rebuild(selectId, allLabel, allValue) {
+                const select = document.getElementById(selectId);
+                if (!select) return;
+                const previous = select.value;
+                const first = document.createElement('option');
+                first.value = allValue;
+                first.textContent = allLabel;
+                const options = categories.map(name => {
+                    const option = document.createElement('option');
+                    option.value = name;
+                    option.textContent = name;
+                    return option;
+                });
+                select.replaceChildren(first, ...options);
+                select.value = categories.includes(previous) ? previous : allValue;
+            }
+
+            rebuild('distCategorySelect', 'كل الفئات', 'الكل');
+            rebuild('filterCategory', 'جميع الفئات', '');
+            window.AtayaCategories?.refresh();
+        }
+
+        // ================= العطايا =================
+        function formatGrantMoney(unitAmount, currency) {
+            if (unitAmount === null || unitAmount === undefined || unitAmount === '' || Number(unitAmount) <= 0) return '';
+            return `${fmtNum(unitAmount)}${currency ? ' ' + currency : ''}`;
+        }
+
+        function saveGrant() {
+            const editId = document.getElementById('editGrantId').value;
+            if (!requirePermission(editId ? "edit" : "add")) return;
+            const name = document.getElementById('grantName').value.trim();
+            const donor = document.getElementById('grantDonor').value.trim() || 'فاعل خير';
+            const date = document.getElementById('grantDate').value;
+            const defaultQuota = document.getElementById('grantDefaultQuota').value || 1;
+            const rawUnitAmount = document.getElementById('grantUnitAmount').value.trim();
+            const unitAmount = rawUnitAmount !== '' && Number(rawUnitAmount) > 0 ? Number(rawUnitAmount) : null;
+            const currency = unitAmount !== null ? document.getElementById('grantCurrency').value.trim() : '';
+            const details = document.getElementById('grantDetails').value.trim();
+            const typedDocNo = document.getElementById('grantDocNo').value.trim();
+
+            if (!name || !date) return alert('يرجى تحديد مسمى العطية واختيار التاريخ.');
+
+            if (editId) {
+                const index = grants.findIndex(g => String(g.id) === String(editId));
+                if (index !== -1) {
+                    grants[index] = {
+                        ...grants[index],
+                        name, donor, date, defaultQuota,
+                        unitAmount, currency,
+                        details,
+                        docNo: typedDocNo || grants[index].docNo || nextDocNo(date)
+                    };
+                    alert('تم تحديث بيانات العطية بنجاح.');
+                }
+            } else {
+                grants.unshift({
+                    id: uidGen(),
+                    name, donor, date, defaultQuota,
+                    unitAmount, currency,
+                    details,
+                    docNo: typedDocNo || nextDocNo(date)
+                });
+                alert('تم حفظ العطية.');
+            }
+
+            syncToFirebase();
+            resetGrantForm();
+            renderGrants();
+        }
+
+        function editGrant(id) {
+            if (!requirePermission("edit")) return;
+            const g = grants.find(item => String(item.id) === String(id));
+            if (!g) return;
+
+            document.getElementById('editGrantId').value = g.id;
+            document.getElementById('grantName').value = g.name;
+            document.getElementById('grantDonor').value = g.donor;
+            document.getElementById('grantDate').value = g.date;
+            document.getElementById('grantDefaultQuota').value = g.defaultQuota;
+            document.getElementById('grantUnitAmount').value = (g.unitAmount !== null && g.unitAmount !== undefined) ? g.unitAmount : '';
+            document.getElementById('grantCurrency').value = g.currency || '';
+            document.getElementById('grantDetails').value = g.details || '';
+            document.getElementById('grantDocNo').value = g.docNo || '';
+
+            document.getElementById('grantFormTitle').innerText = 'تعديل بيانات العطية';
+            document.getElementById('grantSubmitBtn').innerText = 'تحديث العطية';
+            document.getElementById('grantSubmitBtn').classList.replace('bg-indigo-600', 'bg-amber-600');
+            document.getElementById('cancelGrantEditBtn').classList.remove('hidden');
+
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function resetGrantForm() {
+            document.getElementById('editGrantId').value = '';
+            document.getElementById('grantName').value = '';
+            document.getElementById('grantDonor').value = '';
+            document.getElementById('grantDate').value = todayLocal();
+            document.getElementById('grantDefaultQuota').value = 1;
+            document.getElementById('grantUnitAmount').value = '';
+            document.getElementById('grantCurrency').value = '';
+            document.getElementById('grantDetails').value = '';
+            document.getElementById('grantDocNo').value = '';
+            document.getElementById('grantFormTitle').innerText = 'تسجيل عطية جديدة';
+            document.getElementById('grantSubmitBtn').innerText = 'حفظ العطية';
+            document.getElementById('grantSubmitBtn').classList.replace('bg-amber-600', 'bg-indigo-600');
+            document.getElementById('cancelGrantEditBtn').classList.add('hidden');
+        }
+
+        function deleteGrant(id) {
+            if (!requirePermission("edit")) return;
+            if (!confirm('حذف هذه العطية لا يحذف سجلات الصرف السابقة. هل ترغب بالاستمرار؟')) return;
+            grants = grants.filter(g => String(g.id) !== String(id));
+            syncToFirebase();
+            renderGrants();
+        }
+
+        function renderGrants() {
+            const list = document.getElementById('grantsList');
+            if (grants.length === 0) {
+                list.innerHTML = `<p class="text-center text-xs text-slate-400 py-4">لم يتم تسجيل عطايا بعد.</p>`;
+                return;
+            }
+            list.innerHTML = grants.map(g => {
+                const moneyStr = formatGrantMoney(g.unitAmount, g.currency);
+                return `
+                <div class="p-3 border border-slate-200 rounded-lg flex flex-wrap justify-between items-center gap-2 text-xs">
+                    <div>
+                        <p class="font-bold text-slate-800 text-sm">${g.name}</p>
+                        <p class="text-slate-500 mt-1">
+                            المانح: ${g.donor} | التاريخ: ${g.date}${g.docNo ? ` | رقم المستند: <bdi>${g.docNo}</bdi>` : ''}
+                            ${moneyStr ? ` | <span class="text-emerald-700 font-bold">مبلغ العطية: ${moneyStr}</span>` : ''}
+                        </p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="bg-indigo-50 text-indigo-700 px-2 py-1 rounded font-semibold">الاستحقاق: ${g.defaultQuota}</span>
+                        ${can('edit') ? `<button type="button" onclick="editGrant('${g.id}')" class="text-indigo-600 hover:underline">تعديل</button>
+                        <button type="button" onclick="deleteGrant('${g.id}')" class="text-rose-600 hover:underline">حذف</button>` : ''}
+                    </div>
+                </div>
+            `}).join('');
+        }
+
+        // ================= الصرف الميداني =================
+        function initDistributeSection() {
+            const grantSelect = document.getElementById('distGrantSelect');
+            if (grants.length === 0) {
+                grantSelect.innerHTML = `<option value="">لا توجد عطايا مسجلة</option>`;
+                document.getElementById('distributeList').innerHTML = `<p class="text-center text-xs text-slate-400 py-6">لا توجد عطايا مسجلة.</p>`;
+                return;
+            }
+            const prevVal = grantSelect.value;
+            grantSelect.innerHTML = grants.map(g => `<option value="${g.id}">${g.name} (${g.date})</option>`).join('');
+            if (prevVal && grants.some(g => String(g.id) === String(prevVal))) {
+                grantSelect.value = prevVal;
+            } else {
+                selectedBenIds.clear();
+                customQuotas = {};
+            }
+            updateCategoryDropdowns();
+            loadDistributionList();
+        }
+
+        function onGrantSelectionChange() {
+            selectedBenIds.clear();
+            customQuotas = {};
+            loadDistributionList();
+        }
+
+        function clearDistSearch() {
+            const input = document.getElementById('distSearchInput');
+            if (input) {
+                input.value = '';
+                loadDistributionList();
+            }
+        }
+
+        function toggleBenSelection(benId, isChecked) {
+            const keyStr = String(benId);
+            if (isChecked) {
+                selectedBenIds.add(keyStr);
+            } else {
+                selectedBenIds.delete(keyStr);
+            }
+            updateSummary();
+        }
+
+        function saveCustomQuota(benId, val) {
+            customQuotas[String(benId)] = Number(val) || 1;
+        }
+
+        function clearAllSelections() {
+            selectedBenIds.clear();
+            document.querySelectorAll('.dist-check').forEach(cb => { cb.checked = false; });
+            updateSummary();
+        }
+
+        function loadDistributionList() {
+            const grantId = document.getElementById('distGrantSelect').value;
+            const category = document.getElementById('distCategorySelect').value;
+            const sortMode = document.getElementById('distSortSelect')?.value || 'alpha';
+            const searchKeyword = normalizeArabic(document.getElementById('distSearchInput')?.value || '');
+            const list = document.getElementById('distributeList');
+
+            if (!grantId) {
+                list.innerHTML = `<p class="text-center text-xs text-slate-400 py-6">اختر عطية للمتابعة.</p>`;
+                return;
+            }
+
+            const activeGrant = grants.find(g => String(g.id) === String(grantId));
+            if (!activeGrant) return;
+
+            for (const idStr of [...selectedBenIds]) {
+                if (distributionLogs.some(l => String(l.beneficiaryId) === idStr && String(l.grantId) === String(grantId))) {
+                    selectedBenIds.delete(idStr);
+                }
+            }
+
+            let filtered = beneficiaries;
+
+            if (category !== 'الكل') {
+                filtered = filtered.filter(b => b.category === category);
+            }
+
+            if (searchKeyword) {
+                filtered = filtered.filter(b => normalizeArabic(b.name).includes(searchKeyword));
+            }
+
+            filtered = sortBeneficiariesList(filtered, sortMode);
+
+            if (filtered.length === 0) {
+                list.innerHTML = `<p class="text-center text-xs text-slate-400 py-6">لا يوجد مستفيد مطابق للبحث.</p>`;
+                updateSummary();
+                return;
+            }
+
+            list.innerHTML = filtered.map(b => {
+                const previousLogs = distributionLogs.filter(log => String(log.beneficiaryId) === String(b.id) && String(log.grantId) === String(grantId));
+                const totalTaken = previousLogs.reduce((sum, item) => sum + Number(item.amount), 0);
+                const isSelected = totalTaken === 0 && selectedBenIds.has(String(b.id));
+                const quotaVal = customQuotas[String(b.id)] !== undefined ? customQuotas[String(b.id)] : activeGrant.defaultQuota;
+
+                return `
+                    <div class="p-3 bg-white border ${isSelected ? 'border-indigo-500 bg-indigo-50/20' : 'border-slate-200'} rounded-xl flex items-center justify-between gap-2 shadow-xs hover:border-indigo-300">
+                        <div class="flex items-start gap-2.5 flex-1">
+                            <input type="checkbox" value="${b.id}" ${isSelected ? 'checked' : ''} onchange="toggleBenSelection('${b.id}', this.checked)" ${totalTaken > 0 ? 'disabled' : ''} class="dist-check disabled:opacity-30 mt-1 w-5 h-5 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer">
+                            <div>
+                                <span class="font-bold text-slate-800 text-sm block">${b.name}</span>
+                                <div class="text-[11px] text-slate-500 flex flex-wrap items-center gap-x-2 mt-0.5">
+                                    <span>المنطقة: <b>${b.area}</b></span>
+                                    <span>الأسرة: <b>${b.familyCount}</b></span>
+                                    ${b.needPercent !== null && b.needPercent !== undefined ? `<span class="text-amber-700 font-bold bg-amber-50 px-1 rounded">الاحتياج: ${b.needPercent}%</span>` : ''}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="text-left flex flex-col items-end gap-1">
+                            <span class="text-[10px] ${totalTaken > 0 ? 'text-amber-600 font-bold' : 'text-slate-400'}">
+                                ${totalTaken > 0 ? `✓ استلم: ${totalTaken}` : 'لم يستلم'}
+                            </span>
+                            <div class="flex items-center gap-1">
+                                <input type="number" id="quota-${b.id}" value="${quotaVal}" min="1" oninput="saveCustomQuota('${b.id}', this.value)" ${totalTaken > 0 ? 'disabled' : ''} class="disabled:opacity-40 w-14 p-1 text-center font-bold border border-slate-300 rounded text-xs focus:ring-1 focus:ring-indigo-500">
+                                <button type="button" data-permission="add" onclick="quickDistributeOne('${b.id}')" ${totalTaken > 0 ? 'disabled' : ''} class="disabled:opacity-40 disabled:pointer-events-none bg-indigo-50 hover:bg-indigo-600 hover:text-white text-indigo-700 font-semibold px-2 py-1 rounded text-[11px] border border-indigo-200 transition">
+                                    صرف فوري
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            updateSummary();
+        }
+
+        function quickDistributeOne(benId) {
+            if (!requirePermission("add")) return;
+            const grantId = document.getElementById('distGrantSelect').value;
+            if (!grantId) return alert('يرجى تحديد العطية أولاً.');
+
+            const activeGrant = grants.find(g => String(g.id) === String(grantId));
+            const quotaInput = document.getElementById(`quota-${benId}`);
+            const amount = (quotaInput ? quotaInput.value : customQuotas[String(benId)]) || activeGrant.defaultQuota || 1;
+            const ben = beneficiaries.find(b => String(b.id) === String(benId));
+            if (!ben) return;
+
+            if (distributionLogs.some(l => String(l.beneficiaryId) === String(ben.id) && String(l.grantId) === String(activeGrant.id))) {
+                return alert(`(${ben.name}) استلم هذه العطية مسبقاً.`);
+            }
+
+            const todayISO = todayLocal();
+            const now = new Date();
+            const dateStr = now.toLocaleDateString('ar-YE') + ' ' + now.toLocaleTimeString('ar-YE', {hour: '2-digit', minute:'2-digit'});
+
+            distributionLogs.unshift({
+                id: uidGen(),
+                grantId: activeGrant.id,
+                grantName: activeGrant.name,
+                grantDonor: activeGrant.donor || 'فاعل خير',
+                beneficiaryId: ben.id,
+                amount: Number(amount),
+                timestamp: dateStr,
+                rawDate: todayISO,
+                createdByUser: loggedUser
+            });
+
+            selectedBenIds.delete(String(ben.id));
+            syncToFirebase();
+            alert(`تم صرف (${amount}) لـ (${ben.name}) بنجاح.`);
+            loadDistributionList();
+        }
+
+        function selectAllVisible(status) {
+            document.querySelectorAll('.dist-check').forEach(cb => {
+                if (!cb.disabled) {
+                    cb.checked = status;
+                    if (status) {
+                        selectedBenIds.add(String(cb.value));
+                    } else {
+                        selectedBenIds.delete(String(cb.value));
+                    }
+                }
+            });
+            updateSummary();
+        }
+
+        function updateSummary() {
+            const visibleEnabled = [...document.querySelectorAll('.dist-check:not(:disabled)')];
+            const visibleChecked = visibleEnabled.filter(cb => cb.checked).length;
+            const totalSelected = selectedBenIds.size;
+
+            document.getElementById('selectionSummary').innerText = `تم تحديد: ${totalSelected} أفراد`;
+
+            const clearBtn = document.getElementById('clearSelectionBtn');
+            if (clearBtn) {
+                clearBtn.classList.toggle('hidden', totalSelected === 0);
+            }
+
+            const master = document.getElementById('selectAllCheck');
+            if (master) {
+                master.disabled = visibleEnabled.length === 0;
+                master.checked = visibleEnabled.length > 0 && visibleChecked === visibleEnabled.length;
+                master.indeterminate = visibleChecked > 0 && visibleChecked < visibleEnabled.length;
+            }
+        }
+
+        function confirmDistribution() {
+            if (!requirePermission("add")) return;
+            const grantId = document.getElementById('distGrantSelect').value;
+
+            if (!grantId) return alert('يرجى تحديد العطية أولاً.');
+            if (selectedBenIds.size === 0) return alert('يرجى تأشير مستفيد واحد على الأقل.');
+
+            const activeGrant = grants.find(g => String(g.id) === String(grantId));
+            const todayISO = todayLocal();
+            const now = new Date();
+            const dateStr = now.toLocaleDateString('ar-YE') + ' ' + now.toLocaleTimeString('ar-YE', {hour: '2-digit', minute:'2-digit'});
+
+            let savedCount = 0;
+            let skipped = 0;
+
+            for (const idStr of [...selectedBenIds]) {
+                const ben = beneficiaries.find(b => String(b.id) === idStr);
+                if (!ben) continue;
+
+                if (distributionLogs.some(l => String(l.beneficiaryId) === idStr && String(l.grantId) === String(activeGrant.id))) {
+                    skipped++;
+                    continue;
+                }
+
+                const domInput = document.getElementById(`quota-${ben.id}`);
+                const amount = (domInput ? domInput.value : customQuotas[idStr]) || activeGrant.defaultQuota || 1;
+
+                distributionLogs.unshift({
+                    id: uidGen(),
+                    grantId: activeGrant.id,
+                    grantName: activeGrant.name,
+                    grantDonor: activeGrant.donor || 'فاعل خير',
+                    beneficiaryId: ben.id,
+                    amount: Number(amount),
+                    timestamp: dateStr,
+                    rawDate: todayISO,
+                    createdByUser: loggedUser
+                });
+                savedCount++;
+            }
+
+            selectedBenIds.clear();
+            customQuotas = {};
+            syncToFirebase();
+            alert(`تم حفظ الصرف لعدد (${savedCount}) مستفيد.` + (skipped ? `\nتم تخطي ${skipped} لاستلامهم هذه العطية مسبقاً.` : ''));
+            showSection('reportsSection');
+        }
+
+        // ================= التقارير والمشاركة =================
+        function initReportsSection() {
+            populateFilterDropdowns();
+            renderFilteredLogs();
+        }
+
+        function populateFilterDropdowns() {
+            const grantSelect = document.getElementById('filterGrant');
+            const savedGrantVal = grantSelect.value;
+            grantSelect.innerHTML = '<option value="">جميع العطايا</option>' + 
+                grants.map(g => `<option value="${g.name}">${g.name}</option>`).join('');
+            grantSelect.value = savedGrantVal;
+
+            const donors = [...new Set(grants.map(g => g.donor).filter(Boolean))];
+            const donorSelect = document.getElementById('filterDonor');
+            const savedDonorVal = donorSelect.value;
+            donorSelect.innerHTML = '<option value="">جميع المانحين</option>' + 
+                donors.map(d => `<option value="${d}">${d}</option>`).join('');
+            donorSelect.value = savedDonorVal;
+
+            const areas = [...new Set(beneficiaries.map(b => b.area).filter(a => a && a !== 'غير محدد'))];
+            const areaSelect = document.getElementById('filterArea');
+            const savedAreaVal = areaSelect.value;
+            areaSelect.innerHTML = '<option value="">جميع المناطق</option>' + 
+                areas.map(a => `<option value="${a}">${a}</option>`).join('');
+            areaSelect.value = savedAreaVal;
+
+            updateCategoryDropdowns();
+        }
+
+        function clearReportSearch() {
+            document.getElementById('filterReportSearchName').value = '';
+            renderFilteredLogs();
+        }
+
+        function resetFilters() {
+            document.getElementById('filterReportSearchName').value = '';
+            document.getElementById('filterGrant').value = '';
+            document.getElementById('filterDonor').value = '';
+            document.getElementById('filterArea').value = '';
+            document.getElementById('filterCategory').value = '';
+            document.getElementById('filterFromDate').value = '';
+            document.getElementById('filterToDate').value = '';
+            window.AtayaCategories?.refresh();
+            renderFilteredLogs();
+        }
+
+        function renderFilteredLogs() {
+            const searchKeyword = normalizeArabic(document.getElementById('filterReportSearchName')?.value || '');
+            const fGrant = document.getElementById('filterGrant').value;
+            const fDonor = document.getElementById('filterDonor').value;
+            const fArea = document.getElementById('filterArea').value;
+            const fCat = document.getElementById('filterCategory').value;
+            const fFrom = document.getElementById('filterFromDate').value;
+            const fTo = document.getElementById('filterToDate').value;
+
+            currentFilteredLogs = distributionLogs.filter(log => {
+                const ben = beneficiaries.find(b => String(b.id) === String(log.beneficiaryId));
+                if (!ben) return false;
+                const grant = grants.find(g => String(g.id) === String(log.grantId)) || {};
+
+                const benName = ben.name || '';
+                const donorName = log.grantDonor || grant.donor || '';
+                const grantName = log.grantName || grant.name || '';
+                const benArea = ben.area || '';
+                const benCat = ben.category || '';
+                const logDate = log.rawDate || '';
+
+                if (searchKeyword && !normalizeArabic(benName).includes(searchKeyword)) return false;
+                if (fGrant && grantName !== fGrant) return false;
+                if (fDonor && donorName !== fDonor) return false;
+                if (fArea && benArea !== fArea) return false;
+                if (fCat && benCat !== fCat) return false;
+                if (fFrom && logDate && logDate < fFrom) return false;
+                if (fTo && logDate && logDate > fTo) return false;
+
+                return true;
+            });
+
+            const totalOps = currentFilteredLogs.length;
+            const totalAmount = currentFilteredLogs.reduce((sum, item) => sum + Number(item.amount), 0);
+            document.getElementById('statOpsCount').innerText = totalOps;
+            document.getElementById('statTotalAmount').innerText = totalAmount;
+
+            let descParts = [];
+            if (searchKeyword) descParts.push(`بحث بالاسم: "${document.getElementById('filterReportSearchName').value}"`);
+            if (fGrant) descParts.push(`العطية: ${fGrant}`);
+            if (fDonor) descParts.push(`المانح: ${fDonor}`);
+            if (fArea) descParts.push(`المنطقة: ${fArea}`);
+            if (fCat) descParts.push(`الفئة: ${fCat}`);
+            if (fFrom || fTo) descParts.push(`الفترة: ${fFrom || 'البداية'} إلى ${fTo || 'الآن'}`);
+            document.getElementById('activeFilterDesc').innerText = descParts.length > 0 ? `الفلاتر المطبقة: [ ${descParts.join(' | ')} ]` : 'عرض شامل بدون تصفية';
+
+            const tbody = document.getElementById('logsTableBody');
+            if (currentFilteredLogs.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="10" class="text-center py-6 text-slate-400">لا توجد سجلات تطابق الفلترة المحددة.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = currentFilteredLogs.map(log => {
+                const ben = beneficiaries.find(b => String(b.id) === String(log.beneficiaryId)) || {};
+                const grant = grants.find(g => String(g.id) === String(log.grantId)) || {};
+                const donor = log.grantDonor || grant.donor || '-';
+                const creator = log.createdByUser || 'مسؤول';
+                const hasMoney = grant.unitAmount !== null && grant.unitAmount !== undefined && Number(grant.unitAmount) > 0;
+                const rowMoney = hasMoney ? `${fmtNum(Number(log.amount) * Number(grant.unitAmount))}${grant.currency ? ' ' + grant.currency : ''}` : '-';
+
+                return `
+                    <tr class="hover:bg-slate-50">
+                        <td class="p-2 font-bold text-slate-800">${ben.name || '-'}</td>
+                        <td class="p-2 text-slate-600">${ben.area || '-'}</td>
+                        <td class="p-2 text-center font-bold text-amber-700">${ben.needPercent !== null && ben.needPercent !== undefined ? ben.needPercent + '%' : '-'}</td>
+                        <td class="p-2 text-indigo-700 font-medium">${log.grantName}</td>
+                        <td class="p-2 text-slate-500">${donor}</td>
+                        <td class="p-2 text-center font-bold text-emerald-700 bg-emerald-50/50 rounded">${log.amount}</td>
+                        <td class="p-2 text-center font-semibold text-slate-700">${rowMoney}</td>
+                        <td class="p-2 text-center text-slate-600 font-medium text-[11px]"><span class="bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded border border-indigo-100">${creator}</span></td>
+                        <td class="p-2 text-slate-400 text-[10px]">${log.timestamp}</td>
+                        <td class="p-2 text-center no-print">
+                            ${can('edit') ? `<button type="button" onclick="editLogAmount('${log.id}')" class="text-indigo-600 hover:underline mx-1">تعديل</button>
+                            <button type="button" onclick="deleteLog('${log.id}')" class="text-rose-600 hover:underline mx-1">إلغاء</button>` : ''}
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function editLogAmount(logId) {
+            if (!requirePermission("edit")) return;
+            const log = distributionLogs.find(l => String(l.id) === String(logId));
+            if (!log) return;
+            const newAmount = prompt('أدخل الكمية الجديدة:', log.amount);
+            if (newAmount !== null && newAmount.trim() !== '') {
+                log.amount = Number(newAmount);
+                syncToFirebase();
+                renderFilteredLogs();
+                if (!document.getElementById('statementViewer').classList.contains('hidden')) refreshStatement();
+            }
+        }
+
+        function deleteLog(logId) {
+            if (!requirePermission("edit")) return;
+            const target = distributionLogs.find(l => String(l.id) === String(logId));
+            if (!target) return;
+            const ben = beneficiaries.find(b => String(b.id) === String(target.beneficiaryId));
+            if (!confirm(`هل تريد إلغاء وحذف (${ben ? ben.name : 'هذا المستفيد'}) من كشف (${target.grantName})؟`)) return;
+
+            distributionLogs = distributionLogs.filter(l =>
+                !(String(l.id) === String(logId) ||
+                  (String(l.grantId) === String(target.grantId) && String(l.beneficiaryId) === String(target.beneficiaryId)))
+            );
+            syncToFirebase();
+            renderFilteredLogs();
+            if (document.getElementById('statementsSection').classList.contains('active-section')) renderStatementsList();
+            if (!document.getElementById('statementViewer').classList.contains('hidden')) refreshStatement();
+        }
+
+        function removeBeneficiaryFromStatement(grantId, benId) {
+            if (!requirePermission("edit")) return;
+            const ben = beneficiaries.find(b => String(b.id) === String(benId));
+            if (!confirm(`هل تريد حذف (${ben ? ben.name : 'هذا المستفيد'}) من هذا الكشف؟`)) return;
+            distributionLogs = distributionLogs.filter(l =>
+                !(String(l.grantId) === String(grantId) && String(l.beneficiaryId) === String(benId))
+            );
+            syncToFirebase();
+            refreshStatement();
+            renderStatementsList();
+            if (document.getElementById('reportsSection').classList.contains('active-section')) renderFilteredLogs();
+        }
+
+        function editBeneficiaryInStatement(grantId, benId) {
+            if (!requirePermission("edit")) return;
+            const matching = distributionLogs.filter(l => String(l.grantId) === String(grantId) && String(l.beneficiaryId) === String(benId));
+            if (!matching.length) return;
+            const currentSum = matching.reduce((s, x) => s + (Number(x.amount) || 0), 0);
+            const newAmount = prompt('أدخل الكمية الجديدة للمستفيد في هذا الكشف:', currentSum);
+            if (newAmount === null || newAmount.trim() === '') return;
+            const num = Number(newAmount);
+            if (isNaN(num) || num <= 0) return alert('يرجى إدخال كمية صحيحة أكبر من صفر.');
+
+            const firstLog = matching[0];
+            firstLog.amount = num;
+            const extraIds = new Set(matching.slice(1).map(x => String(x.id)));
+            if (extraIds.size > 0) {
+                distributionLogs = distributionLogs.filter(l => !extraIds.has(String(l.id)));
+            }
+            syncToFirebase();
+            refreshStatement();
+            renderStatementsList();
+            if (document.getElementById('reportsSection').classList.contains('active-section')) renderFilteredLogs();
+        }
+
+        function openAddLogFromStatement() {
+            if (!currentStatementId) return;
+            openAddLogFromReportModal(currentStatementId);
+        }
+
+        // ================= إضافة مستفيد للكشف =================
+        function openAddLogFromReportModal(forcedGrantId) {
+            if (!requirePermission("add")) return;
+            if (grants.length === 0) return alert('يرجى تسجيل عطية أولاً في قسم العطايا.');
+            if (beneficiaries.length === 0) return alert('لا يوجد مستفيدون مسجلون في النظام.');
+
+            const grantSel = document.getElementById('repAddGrantSelect');
+            grantSel.innerHTML = grants.map(g => `<option value="${g.id}">${escHtml(g.name)} (${escHtml(g.date)})</option>`).join('');
+
+            if (forcedGrantId) {
+                grantSel.value = forcedGrantId;
+            } else {
+                const currentFilterGrantName = document.getElementById('filterGrant')?.value || '';
+                if (currentFilterGrantName) {
+                    const matchedGrant = grants.find(g => g.name === currentFilterGrantName);
+                    if (matchedGrant) grantSel.value = matchedGrant.id;
+                }
+            }
+
+            document.getElementById('repAddBenSearch').value = '';
+            onRepAddGrantChange();
+            document.getElementById('addLogFromReportModal').classList.remove('hidden');
+        }
+
+        function closeAddLogFromReportModal() {
+            document.getElementById('addLogFromReportModal').classList.add('hidden');
+        }
+
+        function onRepAddGrantChange() {
+            const grantId = document.getElementById('repAddGrantSelect').value;
+            const activeGrant = grants.find(g => String(g.id) === String(grantId));
+            if (activeGrant) {
+                document.getElementById('repAddQuotaInput').value = activeGrant.defaultQuota || 1;
+            }
+            filterRepAddBeneficiaries();
+        }
+
+        function filterRepAddBeneficiaries() {
+            const grantId = document.getElementById('repAddGrantSelect').value;
+            const search = normalizeArabic(document.getElementById('repAddBenSearch')?.value || '');
+            const benSel = document.getElementById('repAddBenSelect');
+            const hint = document.getElementById('repAddBenHint');
+
+            const takenSet = new Set(
+                distributionLogs.filter(l => String(l.grantId) === String(grantId)).map(l => String(l.beneficiaryId))
+            );
+
+            let available = beneficiaries.filter(b => !takenSet.has(String(b.id)));
+            if (search) {
+                available = available.filter(b =>
+                    normalizeArabic(b.name).includes(search) ||
+                    normalizeArabic(b.area).includes(search) ||
+                    normalizeArabic(b.category).includes(search)
+                );
+            }
+
+            available = sortBeneficiariesList(available, 'alpha');
+
+            if (available.length === 0) {
+                benSel.innerHTML = `<option value="" disabled>لا يوجد مستفيد متاح غير مستلم مطابق للبحث</option>`;
+                hint.innerText = 'ملاحظة: يتم إخفاء المستفيدين الذين استلموا هذه العطية مسبقاً.';
+                return;
+            }
+
+            benSel.innerHTML = available.map((b, idx) =>
+                `<option value="${b.id}" ${idx === 0 ? 'selected' : ''}>${escHtml(b.name)} — (${escHtml(b.area || '-')})</option>`
+            ).join('');
+            hint.innerText = `متاح للإضافة في هذه العطية: ${available.length} مستفيد.`;
+        }
+
+        function saveLogFromReportModal() {
+            if (!requirePermission("add")) return;
+            const grantId = document.getElementById('repAddGrantSelect').value;
+            const benId = document.getElementById('repAddBenSelect').value;
+            const amount = Number(document.getElementById('repAddQuotaInput').value) || 1;
+
+            if (!grantId) return alert('يرجى اختيار العطية.');
+            if (!benId) return alert('يرجى اختيار المستفيد من القائمة.');
+
+            const activeGrant = grants.find(g => String(g.id) === String(grantId));
+            const ben = beneficiaries.find(b => String(b.id) === String(benId));
+            if (!activeGrant || !ben) return;
+
+            if (distributionLogs.some(l => String(l.beneficiaryId) === String(ben.id) && String(l.grantId) === String(activeGrant.id))) {
+                return alert(`المستفيد (${ben.name}) مسجل مسبقاً في كشف هذه العطية.`);
+            }
+
+            const todayISO = todayLocal();
+            const now = new Date();
+            const dateStr = now.toLocaleDateString('ar-YE') + ' ' + now.toLocaleTimeString('ar-YE', {hour: '2-digit', minute:'2-digit'});
+
+            distributionLogs.unshift({
+                id: uidGen(),
+                grantId: activeGrant.id,
+                grantName: activeGrant.name,
+                grantDonor: activeGrant.donor || 'فاعل خير',
+                beneficiaryId: ben.id,
+                amount: Number(amount),
+                timestamp: dateStr,
+                rawDate: todayISO,
+                createdByUser: loggedUser
+            });
+
+            syncToFirebase();
+            populateFilterDropdowns();
+            renderFilteredLogs();
+            if (document.getElementById('statementsSection').classList.contains('active-section')) renderStatementsList();
+            if (!document.getElementById('statementViewer').classList.contains('hidden')) refreshStatement();
+            closeAddLogFromReportModal();
+            alert(`تمت إضافة (${ben.name}) إلى كشف (${activeGrant.name}) بنجاح.`);
+        }
+
+        // ================= مشاركة PDF والواتساب =================
+        async function sharePDFToWhatsAppSmart() {
+            if (currentFilteredLogs.length === 0) return alert('لا توجد بيانات لمشاركتها.');
+
+            const element = document.getElementById('pdfReportArea');
+            const dateStr = todayLocal();
+            const fileName = `تقرير_العطايا_${dateStr}.pdf`;
+
+            const opt = {
+                margin:       [8, 8, 8, 8],
+                filename:     fileName,
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2, useCORS: true, letterRendering: true },
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+
+            try {
+                const pdfBlob = await html2pdf().set(opt).from(element).outputPdf('blob');
+                const file = new File([pdfBlob], fileName, { type: 'application/pdf' });
+
+                if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                    try {
+                        await navigator.share({
+                            files: [file],
+                            title: 'كشف صرف العطايا',
+                            text: 'مرفق لكم كشف صرف العطايا والمساعدات.'
+                        });
+                        return;
+                    } catch (shareErr) {
+                        if (shareErr.name === 'AbortError') return;
+                    }
+                }
+
+                const filterDesc = document.getElementById('activeFilterDesc').innerText;
+                const totalAmount = currentFilteredLogs.reduce((sum, item) => sum + Number(item.amount), 0);
+                const wpMsg = `📄 *تقرير صرف العطايا والمساعدات*\n📅 التاريخ: ${new Date().toLocaleDateString('ar-YE')}\n${filterDesc !== 'عرض شامل بدون تصفية' ? '🏷 ' + filterDesc + '\n' : ''}👥 عدد المستفيدين: ${currentFilteredLogs.length}\n📦 إجمالي العطايا: ${totalAmount}`;
+                alert('هذا المتصفح لا يدعم إرفاق PDF مباشرة. سيتم فتح واتساب بالنص فقط؛ استخدم هاتفاً يدعم مشاركة النظام لإرسال PDF كمرفق.');
+                window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(wpMsg)}`, '_blank');
+
+            } catch (err) {
+                console.error(err);
+                alert('تعذر إنشاء أو مشاركة ملف PDF.');
+            }
+        }
+
+        function shareTextDirect() {
+            if (currentFilteredLogs.length === 0) return alert('لا توجد بيانات لمشاركتها.');
+
+            const filterDesc = document.getElementById('activeFilterDesc').innerText;
+            const totalAmount = currentFilteredLogs.reduce((sum, item) => sum + Number(item.amount), 0);
+
+            let msg = `بسم الله الرحمن الرحيم\n📋 *كشف صرف العطايا والمساعدات*\n`;
+            msg += `📅 التاريخ: ${new Date().toLocaleDateString('ar-YE')}\n`;
+            if (filterDesc && filterDesc !== 'عرض شامل بدون تصفية') {
+                msg += `🏷 ${filterDesc}\n`;
+            }
+            msg += `--------------------------------\n`;
+
+            currentFilteredLogs.forEach((log, idx) => {
+                const ben = beneficiaries.find(b => String(b.id) === String(log.beneficiaryId)) || {};
+                const grant = grants.find(g => String(g.id) === String(log.grantId)) || {};
+                const hasMoney = grant.unitAmount !== null && grant.unitAmount !== undefined && Number(grant.unitAmount) > 0;
+                const moneyPart = hasMoney ? ` | المبلغ: ${fmtNum(Number(log.amount) * Number(grant.unitAmount))}${grant.currency ? ' ' + grant.currency : ''}` : '';
+                msg += `${idx + 1}. *${ben.name || 'مستفيد'}*\n   المنطقة: ${ben.area || '-'} | العطية: ${log.grantName} | الكمية: ${log.amount}${moneyPart} | المنفّذ: ${log.createdByUser || '-'}\n`;
+            });
+
+            msg += `--------------------------------\n`;
+            msg += `👥 إجمالي المستفيدين: ${currentFilteredLogs.length}\n`;
+            msg += `📦 إجمالي العطايا: ${totalAmount}\n\n`;
+            msg += `✍️ 1. إعداد المختص: ..............\n✍️ 2. اعتمد من: ..............`;
+
+            const url = `whatsapp://send?text=${encodeURIComponent(msg)}`;
+            window.location.href = url;
+            setTimeout(() => {
+                window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`, '_blank');
+            }, 1000);
+        }
+
+        function downloadPDFDirect() {
+            if (currentFilteredLogs.length === 0) return alert('لا توجد بيانات لتنزيلها.');
+            const element = document.getElementById('pdfReportArea');
+            const opt = {
+                margin:       [8, 8, 8, 8],
+                filename:     `تقرير_العطايا_${todayLocal()}.pdf`,
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2, useCORS: true, letterRendering: true },
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+            html2pdf().set(opt).from(element).save();
+        }
+
+        // ================= كشوفات العطايا (A4) =================
+        function todayLocal() {
+            const d = new Date();
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        }
+        function setDefaultDates() {
+            ['grantDate', 'filterFromDate', 'filterToDate'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el && !el.value) el.value = todayLocal();
+            });
+        }
+        document.addEventListener('click', e => {
+            if (e.target && e.target.matches && e.target.matches('input[type="date"]')) {
+                try { e.target.showPicker(); } catch (_) {}
+            }
+        });
+
+        const escHtml = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        const fmtNum = n => Number(Number(n || 0).toFixed(2)).toLocaleString('en-US');
+        let currentStatementId = null;
+        let pendingDeleteGrantId = null;
+
+        function nextDocNo(dateStr) {
+            const y = (dateStr || '').slice(0, 4) || String(new Date().getFullYear());
+            const prefix = `ع-${y}-`;
+            let max = 0;
+            grants.forEach(g => {
+                if (g.docNo && g.docNo.startsWith(prefix)) max = Math.max(max, parseInt(g.docNo.slice(prefix.length), 10) || 0);
+            });
+            return prefix + String(max + 1).padStart(3, '0');
+        }
+
+        function ensureDocNos() {
+            let changed = false;
+            [...grants].sort((a, b) => Number(a.id) - Number(b.id)).forEach(g => {
+                if (!g.docNo) { g.docNo = nextDocNo(g.date); changed = true; }
+            });
+            if (changed) syncToFirebase();
+        }
+
+        function buildStatementData(grantId) {
+            const grant = grants.find(g => String(g.id) === String(grantId));
+            if (!grant) return null;
+            const byBen = new Map();
+            distributionLogs.filter(l => String(l.grantId) === String(grantId)).forEach(l => {
+                const benObj = beneficiaries.find(b => String(b.id) === String(l.beneficiaryId));
+                if (!benObj) return;
+                const k = String(benObj.id);
+                if (!byBen.has(k)) byBen.set(k, { ben: benObj, amount: 0 });
+                byBen.get(k).amount += Number(l.amount) || 0;
+            });
+            const rows = [...byBen.values()].sort((a, b) => String(a.ben.name).localeCompare(String(b.ben.name), 'ar'));
+            const total = rows.reduce((s, r) => s + r.amount, 0);
+            const hasMoney = grant.unitAmount !== null && grant.unitAmount !== undefined && Number(grant.unitAmount) > 0;
+            const unitAmount = hasMoney ? Number(grant.unitAmount) : 0;
+            const currency = hasMoney ? (grant.currency || '') : '';
+            const totalMoney = hasMoney ? total * unitAmount : null;
+
+            return {
+                grant, rows,
+                total,
+                hasMoney,
+                unitAmount,
+                currency,
+                totalMoney,
+                count: rows.length,
+                issued: todayLocal()
+            };
+        }
+
+        function signatureBlockHTML() {
+            return `<div class="stmt-sign">
+                <div><b>1. إعداد المختص:</b><p>الاسم: <i class="ln"></i></p><p>التوقيع: <i class="ln"></i></p></div>
+                <div><b>2. اعتمد من:</b><p>الاسم: <i class="ln"></i></p><p>التوقيع: <i class="ln"></i></p></div>
+            </div>`;
+        }
+
+        function getStmtThead(d, forExport = false) {
+            const actCol = (!forExport && can('edit')) ? `<th class="no-print" style="width:10%">إجراء</th>` : '';
+            if (d.hasMoney) {
+                return `<thead><tr>
+                    <th style="width:5%">م</th>
+                    <th style="width:26%">اسم المستفيد</th>
+                    <th style="width:16%">المنطقة</th>
+                    <th style="width:9%">عدد الأفراد</th>
+                    <th style="width:13%">الفئة</th>
+                    <th style="width:8%">الكمية</th>
+                    <th style="width:13%">المبلغ${d.currency ? ' (' + escHtml(d.currency) + ')' : ''}</th>
+                    ${actCol}
+                </tr></thead>`;
+            }
+            return `<thead><tr>
+                <th style="width:6%">م</th><th style="width:30%">اسم المستفيد</th><th style="width:18%">المنطقة</th>
+                <th style="width:11%">عدد الأفراد</th><th style="width:15%">الفئة</th><th style="width:10%">الكمية</th>
+                ${actCol}
+            </tr></thead>`;
+        }
+
+        function statementRowHTML(r, i, d, forExport = false) {
+            const actCell = (!forExport && can('edit'))
+                ? `<td class="c no-print" style="white-space:nowrap">
+                    <button type="button" onclick="editBeneficiaryInStatement('${d.grant.id}','${r.ben.id}')" class="text-indigo-600 hover:underline text-[11px] mx-0.5">تعديل</button>
+                    <button type="button" onclick="removeBeneficiaryFromStatement('${d.grant.id}','${r.ben.id}')" class="text-rose-600 hover:underline text-[11px] mx-0.5">حذف</button>
+                   </td>`
+                : '';
+            if (d.hasMoney) {
+                const rowMoney = r.amount * d.unitAmount;
+                return `<tr>
+                    <td class="c">${i + 1}</td>
+                    <td>${escHtml(r.ben.name)}</td>
+                    <td>${escHtml(r.ben.area || '-')}</td>
+                    <td class="c">${escHtml(r.ben.familyCount ?? '-')}</td>
+                    <td>${escHtml(r.ben.category || '-')}</td>
+                    <td class="c"><b>${fmtNum(r.amount)}</b></td>
+                    <td class="c"><b>${fmtNum(rowMoney)}</b></td>
+                    ${actCell}
+                </tr>`;
+            }
+            return `<tr>
+                <td class="c">${i + 1}</td>
+                <td>${escHtml(r.ben.name)}</td>
+                <td>${escHtml(r.ben.area || '-')}</td>
+                <td class="c">${escHtml(r.ben.familyCount ?? '-')}</td>
+                <td>${escHtml(r.ben.category || '-')}</td>
+                <td class="c"><b>${fmtNum(r.amount)}</b></td>
+                ${actCell}
+            </tr>`;
+        }
+
+        function statementTopHTML(d) {
+            const g = d.grant;
+            const moneyMetaRow = d.hasMoney
+                ? `<tr><th>مبلغ العطية</th><td>${fmtNum(d.unitAmount)} ${escHtml(d.currency)}</td><th>إجمالي المبلغ</th><td><b>${fmtNum(d.totalMoney)} ${escHtml(d.currency)}</b></td></tr>`
+                : '';
+            return `<div class="stmt-top">
+                <div class="stmt-head">
+                    <div class="basmala font-bold text-slate-800 text-sm mb-1" style="font-family:'Tajawal',Tahoma,sans-serif; direction:rtl; unicode-bidi:isolate;">بسم الله الرحمن الرحيم</div>
+                    <div class="org">سجل العطايا والمستفيدين</div>
+                    <h1>كشف صرف عطية</h1>
+                </div>
+                <table class="stmt-meta">
+                    <tr><th>رقم المستند</th><td><bdi>${escHtml(g.docNo || '-')}</bdi></td><th>تاريخ العطية</th><td>${escHtml(g.date)}</td></tr>
+                    <tr><th>اسم العطية</th><td>${escHtml(g.name)}</td><th>المانح / الممول</th><td>${escHtml(g.donor || '-')}</td></tr>
+                    ${moneyMetaRow}
+                    <tr><th>التفاصيل</th><td colspan="3">${g.details ? escHtml(g.details).replace(/\n/g, '<br>') : '-'}</td></tr>
+                    <tr><th>عدد المستفيدين</th><td>${d.count}</td><th>تاريخ إصدار الكشف</th><td>${d.issued}</td></tr>
+                </table>
+            </div>`;
+        }
+
+        function statementCompactHTML(d) {
+            const g = d.grant;
+            return `<div class="stmt-compact">
+                <b>كشف صرف عطية: ${escHtml(g.name)}</b>
+                <span>رقم المستند: <bdi>${escHtml(g.docNo || '-')}</bdi> | التاريخ: ${escHtml(g.date)}</span>
+            </div>`;
+        }
+
+        function statementTfootHTML(d, forExport = false) {
+            const extraTd = (!forExport && can('edit')) ? `<td class="no-print"></td>` : '';
+            if (d.hasMoney) {
+                return `<tr>
+                    <td colspan="2">إجمالي عدد المستفيدين: ${d.count}</td>
+                    <td colspan="3" style="text-align:left">الإجمالي العام</td>
+                    <td class="c">${fmtNum(d.total)}</td>
+                    <td class="c">${fmtNum(d.totalMoney)} ${escHtml(d.currency)}</td>
+                    ${extraTd}
+                </tr>`;
+            }
+            return `<tr>
+                <td colspan="2">إجمالي عدد المستفيدين: ${d.count}</td>
+                <td colspan="3" style="text-align:left">إجمالي الكميات</td>
+                <td class="c">${fmtNum(d.total)}</td>
+                ${extraTd}
+            </tr>`;
+        }
+
+        async function buildStatementPagesHTML(d, forExport = false) {
+            try { await document.fonts.load('400 13px Tajawal'); await document.fonts.load('700 13px Tajawal'); } catch (e) {}
+
+            const MAX_CONTENT_H = 975;
+            const GAP = 14, SIGN_GAP = 26;
+            const theadHtml = getStmtThead(d, forExport);
+            const hasActCol = !forExport && can('edit');
+            const colSpanCount = (d.hasMoney ? 7 : 6) + (hasActCol ? 1 : 0);
+            const rowsHtml = d.rows.length
+                ? d.rows.map((r, i) => statementRowHTML(r, i, d, forExport))
+                : [`<tr><td colspan="${colSpanCount}" class="c" style="padding:18px;color:#64748b">لم تُصرف هذه العطية لأي مستفيد بعد.</td></tr>`];
+            const tfoot = statementTfootHTML(d, forExport);
+
+            const m = document.createElement('div');
+            m.className = 'stmt-sheet';
+            m.style.cssText = 'position:fixed;left:-10000px;top:0;width:686px;visibility:hidden;background:#fff;';
+            m.innerHTML = `${statementTopHTML(d)}${statementCompactHTML(d)}
+                <table class="stmt-table">${theadHtml}<tbody>${rowsHtml.join('')}</tbody><tfoot>${tfoot}</tfoot></table>
+                ${signatureBlockHTML()}`;
+            document.body.appendChild(m);
+
+            const h = el => (el ? Math.ceil(el.getBoundingClientRect().height) : 0);
+            const topH = h(m.querySelector('.stmt-top')) || 235;
+            const cmpH = h(m.querySelector('.stmt-compact')) || 38;
+            const table = m.querySelector('.stmt-table');
+            const theadH = h(table.tHead) || 34;
+            const tfootH = h(table.tFoot) || 34;
+            const rowH = [...table.tBodies[0].rows].map(r => h(r) || 30);
+            const signH = h(m.querySelector('.stmt-sign')) || 115;
+            m.remove();
+
+            const pages = [];
+            let cur = { rows: [], used: topH + GAP + theadH, tfoot: false, sign: false };
+            rowH.forEach((rh, i) => {
+                if (cur.rows.length > 0 && (cur.used + rh > MAX_CONTENT_H)) {
+                    pages.push(cur);
+                    cur = { rows: [], used: cmpH + GAP + theadH, tfoot: false, sign: false };
+                }
+                cur.rows.push(i);
+                cur.used += rh;
+            });
+            pages.push(cur);
+
+            const last = pages[pages.length - 1];
+            if (last.used + tfootH <= MAX_CONTENT_H) {
+                last.tfoot = true;
+                last.used += tfootH;
+                if (last.used + SIGN_GAP + signH <= MAX_CONTENT_H) {
+                    last.sign = true;
+                } else {
+                    pages.push({ rows: [], tfoot: false, sign: true });
+                }
+            } else {
+                pages.push({ rows: [], tfoot: true, sign: true });
+            }
+
+            const n = pages.length;
+            const body = pages.map((p, pi) => {
+                const head = pi === 0 ? statementTopHTML(d) : statementCompactHTML(d);
+                const tbl = (p.rows.length || p.tfoot)
+                    ? `<table class="stmt-table">${p.rows.length ? theadHtml + `<tbody>${p.rows.map(i => rowsHtml[i]).join('')}</tbody>` : ''}${p.tfoot ? `<tfoot>${tfoot}</tfoot>` : ''}</table>`
+                    : '';
+                return `<div class="stmt-page${pi ? ' stmt-page-next' : ''}">${head}${tbl}${p.sign ? signatureBlockHTML() : ''}
+                    <div class="stmt-foot"><bdi>${escHtml(d.grant.docNo || '')}</bdi> — صفحة ${pi + 1} من ${n}</div></div>`;
+            }).join('');
+            return `<div class="stmt-sheet">${body}</div>`;
+        }
+
+        function buildStatementText(d) {
+            const g = d.grant;
+            let t = `بسم الله الرحمن الرحيم\n📋 *كشف صرف عطية: ${g.name}*\n`;
+            t += `🔖 رقم المستند: ${g.docNo || '-'}\n📅 التاريخ: ${g.date}\n🏷️ المانح: ${g.donor || '-'}\n`;
+            if (d.hasMoney) {
+                t += `💵 مبلغ العطية: ${fmtNum(d.unitAmount)} ${d.currency}\n`;
+            }
+            if (g.details) t += `📝 التفاصيل: ${g.details}\n`;
+            t += `--------------------------------\n`;
+            d.rows.forEach((r, i) => {
+                const moneyPart = d.hasMoney ? ` | المبلغ: ${fmtNum(r.amount * d.unitAmount)} ${d.currency}` : '';
+                t += `${i + 1}. *${r.ben.name}*\n   ${r.ben.area || '-'} | أسرة: ${r.ben.familyCount ?? '-'} | ${r.ben.category || '-'} | الكمية: ${fmtNum(r.amount)}${moneyPart}\n`;
+            });
+            t += `--------------------------------\n`;
+            t += `👥 إجمالي المستفيدين: ${d.count}\n📦 إجمالي الكميات: ${fmtNum(d.total)}\n`;
+            if (d.hasMoney) {
+                t += `💰 إجمالي المبلغ: ${fmtNum(d.totalMoney)} ${d.currency}\n`;
+            }
+            t += `\n✍️ 1. إعداد المختص: ..............\n✍️ 2. اعتمد من: ..............`;
+            return t;
+        }
+
+        function renderStatementsList() {
+            ensureDocNos();
+            const list = document.getElementById('statementsList');
+            if (grants.length === 0) {
+                list.innerHTML = `<p class="text-center text-xs text-slate-400 py-6">لا توجد عطايا مسجلة بعد.</p>`;
+                return;
+            }
+            list.innerHTML = grants.map(g => {
+                const d = buildStatementData(g.id);
+                return `
+                <div class="p-3 border border-slate-200 rounded-lg">
+                    <div class="flex justify-between items-start gap-2">
+                        <div>
+                            <p class="font-bold text-sm text-slate-800">${escHtml(g.name)}</p>
+                            <p class="text-[11px] text-slate-500 mt-0.5">
+                                رقم المستند: <bdi>${escHtml(g.docNo || '-')}</bdi> | التاريخ: ${escHtml(g.date)}
+                                ${d.hasMoney ? ` | <span class="text-emerald-700 font-semibold">مبلغ العطية: ${fmtNum(d.unitAmount)} ${escHtml(d.currency)}</span>` : ''}
+                            </p>
+                        </div>
+                        <div class="text-[11px] text-slate-600 shrink-0 text-left leading-5">
+                            <div>👥 ${d.count}</div>
+                            <div>📦 ${fmtNum(d.total)}</div>
+                            ${d.hasMoney ? `<div class="text-emerald-700 font-bold">💰 ${fmtNum(d.totalMoney)} ${escHtml(d.currency)}</div>` : ''}
+                        </div>
+                    </div>
+                    <div class="flex gap-2 mt-2">
+                        <button type="button" onclick="openStatement('${g.id}')" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-1.5 rounded-lg text-xs font-semibold">عرض الكشف</button>
+                        ${can('edit') ? `<button type="button" onclick="askDeleteStatement('${g.id}')" class="px-3 border border-rose-300 text-rose-600 hover:bg-rose-50 rounded-lg text-xs">حذف</button>` : ''}
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        function openStatement(id) {
+            ensureDocNos();
+            currentStatementId = id;
+            const v = document.getElementById('statementViewer');
+            v.classList.remove('hidden');
+            v.scrollTop = 0;
+            document.body.style.overflow = 'hidden';
+            refreshStatement();
+        }
+
+        let stmtRenderToken = 0;
+        async function refreshStatement() {
+            const d = buildStatementData(currentStatementId);
+            if (!d) return closeStatement();
+            const tok = ++stmtRenderToken;
+            const html = await buildStatementPagesHTML(d, false);
+            if (tok !== stmtRenderToken || currentStatementId === null) return;
+            const host = document.getElementById('statementSheet');
+            host.innerHTML = html;
+            const sc = Math.min(1, (window.innerWidth - 24) / 718);
+            host.style.zoom = sc < 1 ? sc : '';
+        }
+
+        function closeStatement() {
+            document.getElementById('statementViewer').classList.add('hidden');
+            document.body.style.overflow = '';
+            currentStatementId = null;
+        }
+
+        async function printStatement() {
+            try { await document.fonts.ready; } catch (e) {}
+            document.body.classList.add('printing-statement');
+            const cleanup = () => document.body.classList.remove('printing-statement');
+            window.addEventListener('afterprint', cleanup, { once: true });
+            window.print();
+        }
+
+        async function makeStatementPdf() {
+            const d = buildStatementData(currentStatementId);
+            if (!d) throw new Error('العطية غير موجودة');
+            const stage = document.createElement('div');
+            stage.style.cssText = 'position:fixed;left:-10000px;top:0;width:718px;background:#fff;';
+            stage.innerHTML = await buildStatementPagesHTML(d, true);
+            document.body.appendChild(stage);
+
+            const fileName = `كشف_${d.grant.docNo || 'عطية'}_${d.grant.name}.pdf`.replace(/[\\/:*?"<>|\s]+/g, '_');
+            const opt = {
+                margin: [10, 10, 10, 10],
+                filename: fileName,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2, useCORS: true, letterRendering: true },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+                pagebreak: { mode: ['css'], before: '.stmt-page-next' }
+            };
+            try {
+                const blob = await html2pdf().set(opt).from(stage.firstElementChild).outputPdf('blob');
+                return { blob, fileName };
+            } finally {
+                stage.remove();
+            }
+        }
+
+        async function withBusy(fn) {
+            const el = document.getElementById('stmtBusy');
+            el.classList.remove('hidden');
+            try { await fn(); }
+            catch (err) { console.error(err); alert('تعذر إنشاء ملف PDF.'); }
+            finally { el.classList.add('hidden'); }
+        }
+
+        function downloadStatementPDF() {
+            return withBusy(async () => {
+                const { blob, fileName } = await makeStatementPdf();
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = fileName;
+                document.body.appendChild(a);
+                a.click();
+                setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+            });
+        }
+
+        function shareStatementPDF() {
+            return withBusy(async () => {
+                const { blob, fileName } = await makeStatementPdf();
+                const file = new File([blob], fileName, { type: 'application/pdf' });
+                if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                    try {
+                        await navigator.share({ files: [file], title: fileName.replace('.pdf', '') });
+                        return;
+                    } catch (e) { if (e.name === 'AbortError') return; }
+                }
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = fileName;
+                document.body.appendChild(a);
+                a.click();
+                setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+                alert('هذا المتصفح لا يدعم المشاركة المباشرة، فتم تنزيل الملف لإرساله يدوياً.');
+            });
+        }
+
+        async function copyText(t) {
+            try { await navigator.clipboard.writeText(t); return true; }
+            catch (e) {
+                const ta = document.createElement('textarea');
+                ta.value = t; ta.style.cssText = 'position:fixed;opacity:0';
+                document.body.appendChild(ta); ta.select();
+                let ok = false;
+                try { ok = document.execCommand('copy'); } catch (_) {}
+                ta.remove();
+                return ok;
+            }
+        }
+
+        async function copyStatementText() {
+            const d = buildStatementData(currentStatementId);
+            if (!d) return;
+            alert(await copyText(buildStatementText(d)) ? 'تم نسخ الكشف كنص.' : 'تعذر النسخ، جرّب متصفحاً آخر.');
+        }
+
+        function whatsappStatement() {
+            const d = buildStatementData(currentStatementId);
+            if (!d) return;
+            const msg = buildStatementText(d);
+            if (msg.length > 3500) {
+                const p = copyText(msg);
+                window.open('https://api.whatsapp.com/send', '_blank');
+                p.then(() => alert('الكشف طويل، فتم نسخه. الصقه في المحادثة، أو استخدم "مشاركة PDF".'));
+                return;
+            }
+            window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`, '_blank');
+        }
+
+        // ================= حذف الكشف =================
+        function askDeleteStatement(id) {
+            if (!requirePermission("edit")) return;
+            pendingDeleteGrantId = id || currentStatementId;
+            const d = buildStatementData(pendingDeleteGrantId);
+            if (!d) return;
+            const records = distributionLogs.filter(l => String(l.grantId) === String(pendingDeleteGrantId)).length;
+            document.getElementById('delStmtInfo').innerHTML =
+                `<b>${escHtml(d.grant.name)}</b> (<bdi>${escHtml(d.grant.docNo || '-')}</bdi>)<br>
+                 يحتوي الكشف على: <b>${records}</b> حركة صرف لـ <b>${d.count}</b> مستفيد (إجمالي ${fmtNum(d.total)}).`;
+            const defaultRadio = document.querySelector('input[name="delStmtMode"][value="logs_only"]');
+            if (defaultRadio) defaultRadio.checked = true;
+            document.getElementById('delStmtAck').checked = false;
+            document.getElementById('delStmtBtn').disabled = true;
+            document.getElementById('deleteStatementModal').classList.remove('hidden');
+        }
+
+        function closeDeleteStatement() {
+            document.getElementById('deleteStatementModal').classList.add('hidden');
+            pendingDeleteGrantId = null;
+        }
+
+        async function confirmDeleteStatement() {
+            if (!requirePermission("edit")) return;
+            const id = pendingDeleteGrantId;
+            if (!id) return;
+            const mode = document.querySelector('input[name="delStmtMode"]:checked')?.value || 'logs_only';
+
+            distributionLogs = distributionLogs.filter(l => String(l.grantId) !== String(id));
+            if (mode === 'with_grant') {
+                grants = grants.filter(g => String(g.id) !== String(id));
+            }
+
+            closeDeleteStatement();
+            if (mode === 'with_grant') {
+                closeStatement();
+            } else if (!document.getElementById('statementViewer').classList.contains('hidden')) {
+                refreshStatement();
+            }
+            renderStatementsList();
+            renderGrants();
+            await syncToFirebase();
+            alert(mode === 'with_grant'
+                ? 'تم حذف العطية وكشفها وجميع حركات صرفها نهائياً.'
+                : 'تم حذف حركات الصرف في الكشف بنجاح، مع الإبقاء على العطية مسجلة.');
+        }
+
+        function exportToExcel() {
+            if (currentFilteredLogs.length === 0) return alert('لا توجد بيانات لتصديرها.');
+
+            const reportData = currentFilteredLogs.map(log => {
+                const ben = beneficiaries.find(b => String(b.id) === String(log.beneficiaryId)) || {};
+                const grant = grants.find(g => String(g.id) === String(log.grantId)) || {};
+                const hasMoney = grant.unitAmount !== null && grant.unitAmount !== undefined && Number(grant.unitAmount) > 0;
+                return {
+                    'اسم المستفيد': ben.name || '-',
+                    'المنطقة': ben.area || '-',
+                    'نسبة الاحتياج': ben.needPercent !== null && ben.needPercent !== undefined ? `${ben.needPercent}%` : '-',
+                    'الفئة': ben.category || '-',
+                    'العطية': log.grantName,
+                    'المانح': log.grantDonor || grant.donor || '-',
+                    'الكمية': log.amount,
+                    'المبلغ': hasMoney ? Number(log.amount) * Number(grant.unitAmount) : '-',
+                    'العملة': hasMoney ? (grant.currency || '-') : '-',
+                    'المسؤول المنفذ': log.createdByUser || 'غير محدد',
+                    'تاريخ التسليم': log.timestamp
+                };
+            });
+
+            const ws = XLSX.utils.json_to_sheet(reportData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "كشف العطايا المفلتر");
+            XLSX.writeFile(wb, `كشف_العطايا_${todayLocal()}.xlsx`);
+        }
+
+        setDefaultDates();
+        showSection('beneficiariesSection');
+        updateCategoryDropdowns();
+        setupBackNavigationGuard();
+    </script>
+    <script src="../category-search.js?v=1"></script>
+    <script src="../voice-input.js?v=1"></script>
+</body>
+</html>
