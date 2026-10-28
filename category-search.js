@@ -75,8 +75,8 @@
             hide();
         }
 
-        function render() {
-            const search = normalize(input.value);
+        function render(showAll = false) {
+            const search = showAll ? "" : normalize(input.value);
             let available = categories();
             let entries;
             if (kind === "entry") {
@@ -161,8 +161,11 @@
             } else input.removeAttribute("aria-activedescendant");
         }
 
-        input.addEventListener("focus", render);
-        input.addEventListener("input", render);
+        input.addEventListener("focus", () => {
+            if (select) input.select();
+            render(true);
+        });
+        input.addEventListener("input", () => render());
         input.addEventListener("keydown", event => {
             if (event.key === "Escape") { hide(); return; }
             if (menu.hidden) {
