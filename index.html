@@ -190,19 +190,36 @@
                 <p class="text-amber-800 leading-6">أدخل البريد المستخدم في فايربيس (أو اسم المستخدم قبل ‎@ataya.local‎)، ثم اختر الصلاحيات. الصلاحية الافتراضية للمستخدم الجديد هي الاطلاع فقط.</p>
             </div>
             <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 mb-4">
-                <form onsubmit="saveUserPermission(event)" class="space-y-3">
+                <form id="permissionForm" onsubmit="saveUserPermission(event)" class="space-y-3">
+                    <p id="permissionEditNotice" class="hidden text-xs text-indigo-800 bg-indigo-50 border border-indigo-200 p-2 rounded-lg">أنت تعدّل صلاحيات مستخدم موجود. احفظ التعديل دون تغيير كلمة المرور.</p>
                     <div>
                         <label class="block text-xs font-semibold mb-1">البريد أو اسم المستخدم</label>
                         <input id="permissionEmail" type="text" required dir="ltr" placeholder="ahmed أو ahmed@example.com" class="w-full p-2 border border-slate-300 rounded-lg text-sm">
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label for="permissionPassword" class="block text-xs font-semibold mb-1">كلمة مرور المستخدم الجديد</label>
+                            <input id="permissionPassword" type="password" minlength="8" autocomplete="new-password" dir="ltr" placeholder="8 أحرف على الأقل" class="w-full p-2 border border-slate-300 rounded-lg text-sm">
+                        </div>
+                        <div>
+                            <label for="permissionPasswordConfirm" class="block text-xs font-semibold mb-1">تأكيد كلمة المرور</label>
+                            <input id="permissionPasswordConfirm" type="password" minlength="8" autocomplete="new-password" dir="ltr" class="w-full p-2 border border-slate-300 rounded-lg text-sm">
+                        </div>
                     </div>
                     <div class="flex flex-wrap gap-4 text-xs font-semibold">
                         <label class="flex items-center gap-2"><input id="permissionView" type="checkbox" checked class="w-4 h-4"> الاطلاع على البيانات</label>
                         <label class="flex items-center gap-2"><input id="permissionAdd" type="checkbox" class="w-4 h-4"> الإضافة</label>
                         <label class="flex items-center gap-2 text-indigo-700"><input id="permissionReports" type="checkbox" class="w-4 h-4"> عرض التقارير والكشوفات</label>
-                        <label class="flex items-center gap-2"><input id="permissionEdit" type="checkbox" class="w-4 h-4"> التعديل والحذف</label>
+                        <label class="flex items-center gap-2"><input id="permissionEdit" type="checkbox" class="w-4 h-4"> تعديل البيانات</label>
+                        <label class="flex items-center gap-2 text-rose-700"><input id="permissionDelete" type="checkbox" class="w-4 h-4"> حذف البيانات</label>
                         <label class="flex items-center gap-2 text-amber-700"><input id="permissionAdmin" type="checkbox" class="w-4 h-4"> مدير صلاحيات</label>
                     </div>
-                    <button type="submit" class="w-full bg-amber-600 hover:bg-amber-700 text-white font-semibold py-2.5 rounded-lg">حفظ الصلاحيات</button>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <button id="permissionCreateBtn" type="submit" name="permissionAction" value="create" class="bg-amber-600 hover:bg-amber-700 text-white font-semibold py-2.5 rounded-lg">إنشاء المستخدم وكلمة المرور</button>
+                        <button id="permissionSaveBtn" type="submit" name="permissionAction" value="existing" class="border border-amber-300 text-amber-900 bg-amber-50 font-semibold py-2.5 rounded-lg">حفظ صلاحيات حساب موجود</button>
+                    </div>
+                    <button type="button" id="permissionCancelEdit" onclick="cancelEditUserPermission()" class="hidden text-xs text-slate-600 hover:text-indigo-700 underline">إلغاء تعديل المستخدم</button>
+                    <p class="text-xs text-slate-500">كلمات المرور لا تُحفظ في قاعدة بيانات العطايا. إنشاء الحسابات يتطلب الإنترنت.</p>
                 </form>
             </div>
             <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
@@ -685,6 +702,7 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
         import { getDatabase, ref, update, onValue, get } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
         import { getAuth, onAuthStateChanged, signOut, getIdToken } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+        import { createAtayaUser } from "./trial/user-provisioning.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDCgspXEuju7E59g9VTdXUEjFMwjX3fnU8",
@@ -762,6 +780,11 @@
             if (!response.ok && !result.accountDeleted) throw new Error(result.error || 'تعذر حذف الحساب من Firebase.');
             return result;
         };
+        window.fbCreateAtayaUser = options => {
+            if (!connected) return Promise.reject(new Error('إنشاء المستخدم يتطلب اتصالًا بالإنترنت.'));
+            return createAtayaUser({firebaseConfig, auth, db, root: ROOT, ...options});
+        };
+
         async function flushPending() {
             if (!ready || !connected || sending || !offline.pendingCount()) {
                 refreshBadge();
@@ -963,7 +986,7 @@
             const list = document.getElementById('permissionsList'); if (!list) return;
             if (!permissionState.admin) { list.innerHTML = ''; return; }
             const rows = Object.values(window.fbPermissionRecords || {});
-            list.innerHTML = rows.length ? rows.map(r => `<div class="flex flex-wrap justify-between items-center gap-2 p-2 rounded-lg bg-slate-50 border border-slate-200 text-xs"><b dir="ltr">${r.email}</b><span>${r.admin ? 'مدير' : [r.view?'اطلاع بيانات':'',r.add?'إضافة':'',r.edit?'تعديل':'',r.reports?'تقارير وكشوفات':''].filter(Boolean).join('، ') || 'بدون صلاحيات'}</span><div class="flex gap-3"><button type="button" onclick="removeUserPermission('${permissionKey(r.email)}')" class="text-rose-600 hover:underline">حذف الصلاحيات</button><button type="button" onclick="deleteAtayaAccount('${permissionKey(r.email)}')" class="text-rose-800 border border-rose-300 bg-rose-50 hover:bg-rose-100 px-2 py-1 rounded" title="حذف حساب الدخول نهائيًا من Firebase Authentication">حذف الحساب نهائيًا</button></div></div>`).join('') : '<p class="text-xs text-slate-400">لا توجد صلاحيات مضافة بعد.</p>';
+            list.innerHTML = rows.length ? rows.map(r => `<div class="flex flex-wrap justify-between items-center gap-2 p-2 rounded-lg bg-slate-50 border border-slate-200 text-xs"><b dir="ltr">${r.email}</b><span>${r.admin ? 'مدير' : [r.view?'اطلاع بيانات':'',r.add?'إضافة':'',r.edit?'تعديل':'',(r.delete === true || (r.delete == null && r.edit === true))?'حذف':'',r.reports?'تقارير وكشوفات':''].filter(Boolean).join('، ') || 'بدون صلاحيات'}</span><div class="flex gap-3"><button type="button" onclick="editUserPermission('${permissionKey(r.email)}')" class="text-indigo-700 hover:underline">تعديل الصلاحيات</button><button type="button" onclick="removeUserPermission('${permissionKey(r.email)}')" class="text-rose-600 hover:underline">حذف الصلاحيات</button><button type="button" onclick="deleteAtayaAccount('${permissionKey(r.email)}')" class="text-rose-800 border border-rose-300 bg-rose-50 hover:bg-rose-100 px-2 py-1 rounded" title="حذف حساب الدخول نهائيًا من Firebase Authentication؛ يتطلب خدمة إدارية آمنة">حذف الحساب نهائيًا${window.fbAccountDeletionReady ? '' : ' 🔒'}</button></div></div>`).join('') : '<p class="text-xs text-slate-400">لا توجد صلاحيات مضافة بعد.</p>';
         }
         async function deleteAtayaAccount(k) {
             if (!permissionState.admin) return alert('هذه العملية متاحة لمدير الصلاحيات فقط.');
@@ -996,15 +1019,106 @@
             } finally { controls.forEach(btn => btn.disabled = false); }
         }
 
-        async function saveUserPermission(e) {
-            e.preventDefault(); if (!requirePermission('edit')) return;
-            const email = normalizePermissionEmail(document.getElementById('permissionEmail').value); if (!email || !email.includes('@')) return;
-            const record = { email, view: document.getElementById('permissionView').checked, add: document.getElementById('permissionAdd').checked, edit: document.getElementById('permissionEdit').checked, admin: document.getElementById('permissionAdmin').checked, reports: document.getElementById('permissionReports').checked, updatedBy: loggedUser, updatedAt: new Date().toISOString() };
-            const updates = {}; updates[`permissions/${permissionKey(email)}`] = record;
-            if (permissionState.bootstrap && window.currentUserEmail) updates[`permissions/${permissionKey(window.currentUserEmail)}`] = { email: window.currentUserEmail, view: true, add: true, edit: true, reports: true, admin: true, updatedBy: loggedUser, updatedAt: new Date().toISOString() };
-            try { await window.fbPermissionUpdate(updates); alert('تم حفظ صلاحيات المستخدم.'); e.target.reset(); document.getElementById('permissionView').checked = true; } catch (_) { alert('تعذر حفظ الصلاحيات في فايربيس.'); }
+        function cancelEditUserPermission() {
+            const form = document.getElementById('permissionForm');
+            if (!form) return;
+            form.dataset.editing = '';
+            form.reset();
+            document.getElementById('permissionView').checked = true;
+            document.getElementById('permissionCreateBtn').classList.remove('hidden');
+            document.getElementById('permissionSaveBtn').textContent = 'حفظ صلاحيات حساب موجود';
+            document.getElementById('permissionEditNotice').classList.add('hidden');
+            document.getElementById('permissionCancelEdit').classList.add('hidden');
+            document.getElementById('permissionEmail').readOnly = false;
         }
-        async function removeUserPermission(k) { if (!requirePermission('edit') || !confirm('حذف صلاحيات هذا المستخدم؟')) return; const updates = {}; updates[`permissions/${k}`] = null; try { await window.fbPermissionUpdate(updates); } catch (_) { alert('تعذر حذف الصلاحية.'); } }
+        function editUserPermission(k) {
+            if (!permissionState.admin) return alert('هذه العملية متاحة لمدير الصلاحيات فقط.');
+            const record = (window.fbPermissionRecords || {})[k];
+            if (!record || !record.email) return alert('لم يتم العثور على هذا المستخدم.');
+            const form = document.getElementById('permissionForm');
+            form.dataset.editing = 'true';
+            document.getElementById('permissionEmail').value = record.email;
+            document.getElementById('permissionEmail').readOnly = true;
+            document.getElementById('permissionView').checked = record.view !== false;
+            document.getElementById('permissionAdd').checked = record.add === true;
+            document.getElementById('permissionEdit').checked = record.edit === true;
+            document.getElementById('permissionDelete').checked = record.delete === true || (record.delete == null && record.edit === true);
+            document.getElementById('permissionReports').checked = record.reports === true;
+            document.getElementById('permissionAdmin').checked = record.admin === true;
+            document.getElementById('permissionPassword').value = '';
+            document.getElementById('permissionPasswordConfirm').value = '';
+            document.getElementById('permissionCreateBtn').classList.add('hidden');
+            document.getElementById('permissionSaveBtn').textContent = 'حفظ تعديل الصلاحيات';
+            document.getElementById('permissionEditNotice').classList.remove('hidden');
+            document.getElementById('permissionCancelEdit').classList.remove('hidden');
+            form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+        async function saveUserPermission(e) {
+            e.preventDefault();
+            if (!permissionState.admin) return alert('إدارة المستخدمين متاحة لمدير الصلاحيات فقط.');
+            const form = e.currentTarget;
+            const create = form.dataset.editing !== 'true' && e.submitter?.value !== 'existing';
+            const raw = document.getElementById('permissionEmail').value.trim();
+            if (!raw) return alert('أدخل اسم المستخدم أو البريد الإلكتروني.');
+            const email = normalizePermissionEmail(raw);
+            if (!email.includes('@') || [...email].some(ch => ch.charCodeAt(0) <= 32) || !email.slice(email.indexOf('@') + 1).includes('.')) return alert('اسم المستخدم أو البريد غير صالح.');
+            const password = document.getElementById('permissionPassword').value;
+            const confirmation = document.getElementById('permissionPasswordConfirm').value;
+            if (create && password.length < 8) return alert('كلمة المرور يجب ألا تقل عن 8 أحرف.');
+            if (create && password !== confirmation) return alert('كلمتا المرور غير متطابقتين.');
+            if (create && email === window.currentUserEmail) return alert('الحساب موجود بالفعل؛ استخدم حفظ صلاحيات حساب موجود.');
+            const key = permissionKey(email);
+            const existing = (window.fbPermissionRecords || {})[key];
+            if (create && existing) return alert('هذا المستخدم موجود في قائمة الصلاحيات؛ استخدم حفظ صلاحيات حساب موجود.');
+            const record = {
+                email, view: document.getElementById('permissionView').checked,
+                add: document.getElementById('permissionAdd').checked,
+                edit: document.getElementById('permissionEdit').checked,
+                delete: document.getElementById('permissionDelete').checked,
+                admin: document.getElementById('permissionAdmin').checked,
+                reports: document.getElementById('permissionReports').checked,
+                updatedBy: loggedUser, updatedAt: new Date().toISOString()
+            };
+            if (!create && existing?.uid) record.uid = existing.uid;
+            const updates = { ['permissions/' + key]: record };
+            if (permissionState.bootstrap && window.currentUserEmail) {
+                updates['permissions/' + permissionKey(window.currentUserEmail)] = {
+                    email: window.currentUserEmail, uid: window.currentUserUid,
+                    view: true, add: true, edit: true, delete: true, reports: true, admin: true,
+                    updatedBy: loggedUser, updatedAt: new Date().toISOString()
+                };
+            }
+            const buttons = [...form.querySelectorAll('button[type="submit"]')];
+            buttons.forEach(b => b.disabled = true);
+            try {
+                if (create) {
+                    if (!window.fbCreateAtayaUser) throw new Error('خدمة إنشاء الحسابات غير متاحة.');
+                    await window.fbCreateAtayaUser({email, password, record, key, otherUpdates: updates});
+                    alert('تم إنشاء حساب الدخول وكلمة المرور وحفظ الصلاحيات بنجاح.');
+                } else {
+                    await window.fbPermissionUpdate(updates);
+                    alert('تم حفظ صلاحيات الحساب الموجود. لم تتغير كلمة مروره.');
+                }
+                cancelEditUserPermission();
+            } catch (error) {
+                console.error('Ataya user management:', error);
+                const errors = {
+                    'auth/email-already-in-use': 'اسم المستخدم مسجل مسبقًا في Firebase. اختر حفظ صلاحيات حساب موجود.',
+                    'auth/weak-password': 'كلمة المرور ضعيفة؛ اختر كلمة أقوى.',
+                    'auth/invalid-email': 'اسم المستخدم أو البريد غير صالح.',
+                    'auth/operation-not-allowed': 'يجب تفعيل تسجيل الدخول بالبريد وكلمة المرور في Firebase.',
+                    'auth/network-request-failed': 'تعذر الاتصال بالإنترنت.'
+                };
+                alert(error.accountMayExistWithoutPermissions
+                    ? 'تم إنشاء الحساب، لكن تعذر حفظ الصلاحيات أو إلغاء الحساب الجديد. راجع الحساب في Firebase قبل إعادة المحاولة.'
+                    : errors[error.code] || error.message || 'تعذر إنشاء الحساب. تحقق من الاتصال وقواعد أمان Firebase.');
+            } finally {
+                buttons.forEach(b => b.disabled = false);
+                document.getElementById('permissionPassword').value = '';
+                document.getElementById('permissionPasswordConfirm').value = '';
+            }
+        }
+        async function removeUserPermission(k) { if (!permissionState.admin || !confirm('حذف صلاحيات المستخدم؟ سيبقى حساب الدخول موجودًا في Firebase Authentication.')) return; const updates = {}; updates[`permissions/${k}`] = null; try { await window.fbPermissionUpdate(updates); } catch (_) { alert('تعذر حذف الصلاحية.'); } }
 
         function logoutUser() {
             if (window.fbSignOut) window.fbSignOut().finally(() => window.location.replace('login.html'));
