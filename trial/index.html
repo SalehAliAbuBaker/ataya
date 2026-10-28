@@ -723,7 +723,7 @@
         const auth = getAuth(app);
         // Public HTTPS Worker URL only, never Firebase service-account credentials.
         // Account deletion stays unavailable until the trusted admin endpoint is deployed.
-        const ACCOUNT_DELETE_API = '';
+        const ACCOUNT_DELETE_API = 'https://ataya-admin-api.saleh0129.workers.dev';
         window.fbAccountDeletionReady = Boolean(ACCOUNT_DELETE_API);
 
         const ROOT = 'atp_v2';
