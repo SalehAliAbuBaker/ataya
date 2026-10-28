@@ -2915,5 +2915,59 @@
     </script>
     <script src="./category-search.js?v=1"></script>
     <script src="./voice-input.js?v=1"></script>
+
+    <!-- WhatsApp feedback: opens a prefilled message; user confirms sending in WhatsApp. -->
+    <button type="button" id="atayaContactTrigger" onclick="openAtayaContact()" aria-haspopup="dialog" aria-controls="atayaContactModal"
+        class="fixed bottom-5 left-4 z-40 flex items-center gap-2 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-3 shadow-lg border border-emerald-500 font-bold text-sm">
+        <span aria-hidden="true">💬</span> تواصل معنا
+    </button>
+    <div id="atayaContactModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/60 p-4" role="dialog" aria-modal="true" aria-labelledby="atayaContactTitle" onclick="if(event.target===this) closeAtayaContact()">
+        <div class="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl" dir="rtl">
+            <div class="flex items-center justify-between gap-3 mb-3">
+                <h2 id="atayaContactTitle" class="font-bold text-lg text-slate-800">💬 تواصل معنا</h2>
+                <button type="button" onclick="closeAtayaContact()" aria-label="إغلاق" class="p-2 rounded-lg text-slate-600 hover:bg-slate-100">✕</button>
+            </div>
+            <p class="text-sm text-slate-600 mb-4">هل واجهتك مشكلة في سجل العطايا، أو لديك فكرة لتطوير التطبيق؟</p>
+            <form id="atayaContactForm" onsubmit="sendAtayaContact(event)" class="space-y-3">
+                <fieldset class="flex flex-wrap gap-5 text-sm">
+                    <legend class="font-semibold text-slate-700 mb-2">نوع الرسالة</legend>
+                    <label class="flex items-center gap-2"><input type="radio" name="atayaContactType" value="مشكلة" checked> الإبلاغ عن مشكلة</label>
+                    <label class="flex items-center gap-2"><input type="radio" name="atayaContactType" value="مقترح"> إرسال مقترح</label>
+                </fieldset>
+                <label for="atayaContactMessage" class="block text-sm font-semibold text-slate-700">تفاصيل الرسالة</label>
+                <textarea id="atayaContactMessage" required maxlength="2500" rows="5" placeholder="اكتب تفاصيل المشكلة أو المقترح..." class="w-full rounded-lg border border-slate-300 p-3 text-sm resize-y" style="min-height:100px"></textarea>
+                <p class="text-xs text-amber-800">تنبيه: لا تشارك كلمات المرور أو بيانات المستفيدين الحساسة عبر واتساب.</p>
+                <button type="submit" class="w-full rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold p-3">إرسال عبر واتساب</button>
+            </form>
+        </div>
+    </div>
+    <script>
+        function openAtayaContact() {
+            const modal = document.getElementById('atayaContactModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            document.getElementById('atayaContactMessage').focus();
+        }
+        function closeAtayaContact() {
+            const modal = document.getElementById('atayaContactModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            document.getElementById('atayaContactTrigger').focus();
+        }
+        function sendAtayaContact(event) {
+            event.preventDefault();
+            const message = document.getElementById('atayaContactMessage').value.trim();
+            if (!message) return document.getElementById('atayaContactMessage').focus();
+            const type = document.querySelector('input[name="atayaContactType"]:checked').value;
+            const text = 'سجل العطايا - ' + type + '\n' + message;
+            const url = 'https://wa.me/967734915588?text=' + encodeURIComponent(text);
+            const opened = window.open(url, '_blank', 'noopener,noreferrer');
+            if (!opened) window.location.href = url;
+        }
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape' && !document.getElementById('atayaContactModal').classList.contains('hidden')) closeAtayaContact();
+        });
+    </script>
+
 </body>
 </html>
