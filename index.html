@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>سجل العطايا | الإصدار 1.0.4</title>
+    <title>سجل العطايا | الإصدار 1.0.5</title>
 
     <!-- أيقونة التطبيق وإعدادات التثبيت على شاشة الجوال -->
     <link rel="icon" type="image/png" href="icon.png?v=2">
@@ -148,7 +148,7 @@
         <div class="max-w-4xl mx-auto flex flex-wrap justify-between items-center gap-2">
             <div class="flex items-center gap-2">
                 <img src="icon.png?v=2" alt="" onerror="this.style.display='none'" class="w-7 h-7 rounded-md bg-white/10 p-0.5 object-contain">
-                <div><h1 class="text-base md:text-lg font-bold">سجل العطايا</h1><button type="button" onclick="showAtayaReleaseNotice(true)" class="text-[10px] text-indigo-100 mt-0.5 hover:underline">الإصدار 1.0.4 · ما الجديد؟</button></div>
+                <div><h1 class="text-base md:text-lg font-bold">سجل العطايا</h1><button type="button" onclick="showAtayaReleaseNotice(true)" class="text-[10px] text-indigo-100 mt-0.5 hover:underline">الإصدار 1.0.5 · ما الجديد؟</button></div>
                 <span id="cloudStatusBadge" class="text-[10px] bg-indigo-900/70 border border-indigo-400/40 px-2 py-0.5 rounded-full flex items-center gap-1">
                     <span class="inline-block w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span> جاري المزامنة...
                 </span>
@@ -745,7 +745,7 @@
 
     <div id="atayaReleaseNotice" class="hidden fixed inset-x-3 top-20 mx-auto max-w-md rounded-xl bg-white border border-emerald-200 p-4 shadow-2xl text-slate-800" style="z-index:85" role="status">
         <div class="flex items-start justify-between gap-3">
-            <div><strong id="atayaReleaseHeading" class="text-sm text-emerald-800">مستجدات الإصدار 1.0.4</strong><p id="atayaReleaseText" class="text-xs text-slate-600 mt-1 leading-relaxed"></p></div>
+            <div><strong id="atayaReleaseHeading" class="text-sm text-emerald-800">مستجدات الإصدار 1.0.5</strong><p id="atayaReleaseText" class="text-xs text-slate-600 mt-1 leading-relaxed"></p></div>
             <button type="button" onclick="closeAtayaReleaseNotice()" class="px-2 py-1 text-slate-500 font-bold" aria-label="إغلاق إشعار الإصدار">✕</button>
         </div>
     </div>
@@ -1038,6 +1038,12 @@
             window.setPermissionRecords && window.setPermissionRecords(savedPermissions.records || {});
             window.restoreBeneficiaryGlobalFields && window.restoreBeneficiaryGlobalFields();
             window.offlineRestoreForUser && window.offlineRestoreForUser();
+            const waiting = offline.pendingCount();
+            const importStatus = document.getElementById('atayaExcelImportStatus');
+            if (importStatus && waiting) {
+                importStatus.textContent = 'توجد ' + waiting + ' تعديلات محفوظة محليًا تنتظر المزامنة إلى Firebase. ستُستأنف تلقائيًا عند الاتصال؛ لا تمسح بيانات المتصفح.';
+                importStatus.className = 'w-full text-xs mt-2 text-amber-800';
+            }
             const el = document.getElementById('displayUserName');
             if (el) el.innerText = loggedUser;
             document.documentElement.style.visibility = 'visible';
@@ -1793,8 +1799,8 @@
                         const famVal = String(cell(famIdx) ?? '').trim() || '-';
                         const rawNeed = String(cell(needIdx) ?? '').replace('%','').trim();
                         const parsedNeed = rawNeed ? Number.parseFloat(rawNeed) : NaN;
-                        const id = String(nextId++);
                         while (knownIds.has(String(nextId))) nextId++;
+                        const id = String(nextId++);
                         knownIds.add(id);
                         newIds.push(id);
                         newRecords.push({
@@ -3540,9 +3546,9 @@
         // Advance ATAYA_RELEASE.version with each published change.
         // For a correction-only release choose type 'correction'; the message is standardized.
         const ATAYA_RELEASE = {
-            version: '1.0.4',
+            version: '1.0.5',
             type: 'addition',
-            summary: 'إضافة البحث بالمنطقة للصرف الميداني، وعرض 50 اسمًا لكل صفحة، وتحسين المزامنة على دفعات مع فحص العدد السحابي.'
+            summary: 'تحسين استيراد الأسماء الكبيرة والحفظ الدائم عبر IndexedDB، مع مزامنة الدفعات والتحقق من وجود الأسماء في Firebase.'
         };
         window.showAtayaReleaseNotice = (manual = false) => {
             const notice = document.getElementById('atayaReleaseNotice');
