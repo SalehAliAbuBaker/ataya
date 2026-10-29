@@ -964,6 +964,7 @@
             document.documentElement.style.visibility = 'visible';
             refreshBadge();
             start();
+            window.showAtayaReleaseNotice?.();
         });
     </script>
 
@@ -1559,6 +1560,7 @@
                     if (foundName !== -1) {
                         startRow = 1;
                         nameIdx = foundName;
+                        areaIdx = phoneIdx = famIdx = needIdx = catIdx = -1;
                         const foundArea = headerRow.findIndex(h => h.includes('منطق') || h.includes('حي') || h.toLowerCase() === 'area');
                         if (foundArea !== -1) areaIdx = foundArea;
                         const foundPhone = headerRow.findIndex(h => h.includes('هاتف') || h.includes('تواصل') || h.includes('جوال') || h.toLowerCase() === 'phone');
@@ -3249,6 +3251,28 @@
             XLSX.utils.book_append_sheet(wb, ws, "كشف العطايا المفلتر");
             XLSX.writeFile(wb, `كشف_العطايا_${todayLocal()}.xlsx`);
         }
+
+        // Advance ATAYA_RELEASE.version with each published change.
+        // For a correction-only release choose type 'correction'; the message is standardized.
+        const ATAYA_RELEASE = {
+            version: '1.0.1',
+            type: 'addition',
+            summary: 'إضافة إدارة الحقول وترتيبها وإخفائها، ومواءمة Excel للتصدير والجلب، وعرض 50 اسمًا لكل صفحة.'
+        };
+        window.showAtayaReleaseNotice = (manual = false) => {
+            const notice = document.getElementById('atayaReleaseNotice');
+            if (!notice) return;
+            const storageKey = 'ataya:release-shown:' + (window.currentUserUid || 'device');
+            try {
+                if (!manual && localStorage.getItem(storageKey) === ATAYA_RELEASE.version) return;
+                localStorage.setItem(storageKey, ATAYA_RELEASE.version);
+            } catch (_) { /* Can still open notice when storage is blocked. */ }
+            document.getElementById('atayaReleaseHeading').textContent = 'مستجدات الإصدار ' + ATAYA_RELEASE.version;
+            document.getElementById('atayaReleaseText').textContent = ATAYA_RELEASE.type === 'correction'
+                ? 'تم التصحيح في بعض الأجهزة' : ATAYA_RELEASE.summary;
+            notice.classList.remove('hidden');
+        };
+        window.closeAtayaReleaseNotice = () => document.getElementById('atayaReleaseNotice')?.classList.add('hidden');
 
         setDefaultDates();
         showSection('beneficiariesSection');
