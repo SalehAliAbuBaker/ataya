@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>سجل العطايا | الإصدار 1.0.1</title>
+    <title>سجل العطايا | الإصدار 1.0.2</title>
 
     <!-- أيقونة التطبيق وإعدادات التثبيت على شاشة الجوال -->
     <link rel="icon" type="image/png" href="icon.png?v=2">
@@ -148,7 +148,7 @@
         <div class="max-w-4xl mx-auto flex flex-wrap justify-between items-center gap-2">
             <div class="flex items-center gap-2">
                 <img src="icon.png?v=2" alt="" onerror="this.style.display='none'" class="w-7 h-7 rounded-md bg-white/10 p-0.5 object-contain">
-                <div><h1 class="text-base md:text-lg font-bold">سجل العطايا</h1><button type="button" onclick="showAtayaReleaseNotice(true)" class="text-[10px] text-indigo-100 mt-0.5 hover:underline">الإصدار 1.0.1 · ما الجديد؟</button></div>
+                <div><h1 class="text-base md:text-lg font-bold">سجل العطايا</h1><button type="button" onclick="showAtayaReleaseNotice(true)" class="text-[10px] text-indigo-100 mt-0.5 hover:underline">الإصدار 1.0.2 · ما الجديد؟</button></div>
                 <span id="cloudStatusBadge" class="text-[10px] bg-indigo-900/70 border border-indigo-400/40 px-2 py-0.5 rounded-full flex items-center gap-1">
                     <span class="inline-block w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span> جاري المزامنة...
                 </span>
@@ -328,8 +328,8 @@
                         </div>
 
                         <div class="md:col-span-2">
-                            <label class="block text-xs font-semibold text-slate-600 mb-1">الفئة</label>
-                            <input type="text" id="benCategory" placeholder="مثال: دار المصطفى، أيتام..." class="w-full p-2 border border-slate-300 rounded-lg text-sm bg-white">
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">التصنيفات / الصفات (يمكن إضافة أكثر من صفة)</label>
+                            <input type="text" id="benCategory" placeholder="مثال: طالب، يتيم" class="w-full p-2 border border-slate-300 rounded-lg text-sm bg-white">
                         </div>
                     </div>
 
@@ -739,7 +739,7 @@
 
     <div id="atayaReleaseNotice" class="hidden fixed inset-x-3 top-20 mx-auto max-w-md rounded-xl bg-white border border-emerald-200 p-4 shadow-2xl text-slate-800" style="z-index:85" role="status">
         <div class="flex items-start justify-between gap-3">
-            <div><strong id="atayaReleaseHeading" class="text-sm text-emerald-800">مستجدات الإصدار 1.0.1</strong><p id="atayaReleaseText" class="text-xs text-slate-600 mt-1 leading-relaxed"></p></div>
+            <div><strong id="atayaReleaseHeading" class="text-sm text-emerald-800">مستجدات الإصدار 1.0.2</strong><p id="atayaReleaseText" class="text-xs text-slate-600 mt-1 leading-relaxed"></p></div>
             <button type="button" onclick="closeAtayaReleaseNotice()" class="px-2 py-1 text-slate-500 font-bold" aria-label="إغلاق إشعار الإصدار">✕</button>
         </div>
     </div>
@@ -1329,6 +1329,26 @@
                 .toLowerCase();
         }
 
+        // Legacy records keep a single "category" text value; each comma-separated attribute is searchable independently.
+        function splitBeneficiaryCategories(raw) {
+            const categories = String(raw || '').split(/[,،؛;\n]+/)
+                .map(value => value.trim().replace(/\s+/g, ' ')).filter(Boolean);
+            const seen = new Set();
+            return categories.filter(category => {
+                const key = normalizeArabic(category);
+                if (seen.has(key)) return false;
+                seen.add(key);
+                return true;
+            });
+        }
+        function normalizeBeneficiaryCategories(raw) {
+            return splitBeneficiaryCategories(raw).join('، ') || 'عام';
+        }
+        function beneficiaryHasCategory(record, category) {
+            const key = normalizeArabic(category);
+            return !key || splitBeneficiaryCategories(record?.category).some(c => normalizeArabic(c) === key);
+        }
+
         function sortBeneficiariesList(arr, sortMode) {
             const copy = [...arr];
             if (sortMode === 'alpha') {
@@ -1619,7 +1639,7 @@
                             if (!isNaN(parsedNeed)) needVal = parsedNeed;
                         }
 
-                        const catVal = row[catIdx] ? row[catIdx].toString().trim() : 'عام';
+                        const catVal = normalizeBeneficiaryCategories(row[catIdx] ?? '');
 
                         beneficiaries.unshift({
                             id: uidGen(),
@@ -1823,7 +1843,7 @@
                 phone: document.getElementById('benPhone').value.trim() || '-',
                 familyCount: document.getElementById('benFamilyCount').value || '-',
                 needPercent: needVal !== '' ? Number(needVal) : null,
-                category: window.AtayaCategories?.canonicalCategory(document.getElementById('benCategory').value) || 'عام',
+                category: normalizeBeneficiaryCategories(window.AtayaCategories?.canonicalCategory(document.getElementById('benCategory').value) || document.getElementById('benCategory').value),
                 extraFields: editId
                     ? { ...(beneficiaries.find(b => String(b.id) === String(editId))?.extraFields || {}), ...readBeneficiaryExtraValues() }
                     : readBeneficiaryExtraValues()
@@ -1945,7 +1965,7 @@
         }
 
         function updateCategoryDropdowns() {
-            const categories = [...new Set(beneficiaries.map(b => String(b.category || '').trim()).filter(Boolean))]
+            const categories = [...new Set(beneficiaries.flatMap(b => splitBeneficiaryCategories(b.category)))]
                 .sort((a, b) => a.localeCompare(b, 'ar'));
 
             // Create options with textContent, never interpolate user-entered category names into HTML.
@@ -2171,7 +2191,7 @@
             let filtered = beneficiaries;
 
             if (category !== 'الكل') {
-                filtered = filtered.filter(b => b.category === category);
+                filtered = filtered.filter(b => beneficiaryHasCategory(b, category));
             }
 
             if (searchKeyword) {
@@ -2415,7 +2435,7 @@
                 if (fGrant && grantName !== fGrant) return false;
                 if (fDonor && donorName !== fDonor) return false;
                 if (fArea && benArea !== fArea) return false;
-                if (fCat && benCat !== fCat) return false;
+                if (fCat && !beneficiaryHasCategory(ben, fCat)) return false;
                 if (fFrom && logDate && logDate < fFrom) return false;
                 if (fTo && logDate && logDate > fTo) return false;
 
@@ -3255,9 +3275,9 @@
         // Advance ATAYA_RELEASE.version with each published change.
         // For a correction-only release choose type 'correction'; the message is standardized.
         const ATAYA_RELEASE = {
-            version: '1.0.1',
+            version: '1.0.2',
             type: 'addition',
-            summary: 'إضافة إدارة الحقول وترتيبها وإخفائها، ومواءمة Excel للتصدير والجلب، وعرض 50 اسمًا لكل صفحة.'
+            summary: 'دعم أكثر من صفة للمستفيد الواحد والبحث والتصفية بكل صفة منفردة، مع توافق Excel.'
         };
         window.showAtayaReleaseNotice = (manual = false) => {
             const notice = document.getElementById('atayaReleaseNotice');
