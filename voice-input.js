@@ -6,7 +6,7 @@
     const Engine = window.SpeechRecognition || window.webkitSpeechRecognition;
     const fieldIds = [
         "benName", "benArea", "benPhone", "benFamilyCount",
-        "benNeedPercent", "benCategory", "grantName", "grantDonor",
+        "benNeedPercent", "benCategoryQuery", "grantName", "grantDonor",
         "grantDocNo", "grantDefaultQuota", "grantUnitAmount", "grantDetails",
         "searchBen", "distSearchInput", "filterReportSearchName", "repAddBenSearch",
         "atayaCategorySearchDist", "atayaCategorySearchReport"
@@ -88,7 +88,7 @@
                 field.value = value;
             }
         } else {
-            const replaceQuery = ["benCategory", "searchBen", "distSearchInput",
+            const replaceQuery = ["benCategoryQuery", "searchBen", "distSearchInput",
                 "filterReportSearchName", "repAddBenSearch",
                 "atayaCategorySearchDist", "atayaCategorySearchReport"].includes(field.id);
             const before = replaceQuery ? "" : (field.value || "");
