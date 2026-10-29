@@ -137,7 +137,6 @@
                 const tx = this.db.transaction(['snapshots', 'pending'], 'readwrite');
                 tx.objectStore('snapshots').put({account, data: snapshot});
                 const pStore = tx.objectStore('pending');
-                const existing = await requestDone(pStore.getAllKeys(IDBKeyRange.bound(account + ':', account + ':\uffff')));
                 const wanted = new Set();
                 for (const col of COLLECTIONS) {
                     for (const [id, item] of Object.entries(nextPending[col])) {
@@ -146,7 +145,14 @@
                         pStore.put({key, col, id, item});
                     }
                 }
-                for (const key of existing) if (!wanted.has(key)) pStore.delete(key);
+                // Both writes and acknowledgements use the same serialized queue.
+                // No asynchronous request may make this transaction inactive mid-write.
+                for (const col of COLLECTIONS) {
+                    for (const id of Object.keys(this.pending[col] || {})) {
+                        const key = this.entryKey(col, id);
+                        if (!wanted.has(key)) pStore.delete(key);
+                    }
+                }
                 await transactionDone(tx);
                 this.snapshot = snapshot;
                 this.pending = nextPending;
@@ -193,14 +199,12 @@
                 const removed = [];
                 for (const col of COLLECTIONS) {
                     for (const [id, item] of Object.entries(batch.entries[col] || {})) {
+                        // The write queue guarantees disk and memory cannot change
+                        // concurrently. Only delete the exact version that was uploaded.
                         if (!Object.prototype.hasOwnProperty.call(this.pending[col], id) ||
                             !equal(this.pending[col][id], item)) continue;
-                        // Verify the current on-disk value to avoid losing a newer local edit.
-                        const disk = await requestDone(pStore.get(this.entryKey(col, id)));
-                        if (disk && equal(disk.item, item)) {
-                            pStore.delete(this.entryKey(col, id));
-                            removed.push([col, id, item]);
-                        }
+                        pStore.delete(this.entryKey(col, id));
+                        removed.push([col, id, item]);
                     }
                 }
                 await transactionDone(tx);
