@@ -796,6 +796,7 @@
         let ready = false;
         let connected = false;
         let sending = false;
+        let importStaging = false;
         let migrationChecked = false;
         let cloudBeneficiariesCount = null;
         let cloudSnapshotAt = null;
@@ -876,8 +877,9 @@
                     const batch = offline.nextBatch();
                     const changes = { ...batch.patch, lastUpdated: new Date().toISOString() };
                     await update(ref(db, ROOT), changes);
-                    offline.acknowledge(batch);
+                    await offline.acknowledge(batch);
                     window.fbLastSyncError = '';
+                    window.atayaOnBatchProgress?.(offline.pendingCount());
                     refreshBadge();
                 }
             } catch (error) {
@@ -891,17 +893,49 @@
         }
 
         window.fbPush = async function () {
-            if (!offline.account) return;
-            offline.stage({ beneficiaries, grants, distributionLogs });
+            if (!offline.account) throw new Error('لا يوجد مخزن محلي جاهز');
+            await offline.saveAndStage({ beneficiaries, grants, distributionLogs });
             refreshBadge();
-            return flushPending();
+            await flushPending();
+            return true; // Durable on device; cloud completion is checked separately.
+        };
+
+        window.fbStageBeneficiaryImport = async function (records) {
+            if (!offline.account) throw new Error('سجّل الدخول أولًا');
+            if (importStaging) throw new Error('عملية استيراد أخرى جارية');
+            importStaging = true;
+            try {
+                // Atomic durable snapshot + pending queue. Do not modify the UI first.
+                await offline.saveAndStage({beneficiaries: records, grants, distributionLogs});
+                beneficiaries = records;
+                renderBeneficiaries();
+                updateCategoryDropdowns();
+                refreshBadge();
+            } finally {
+                importStaging = false;
+            }
+            // Do not await network here: the caller can display and track batch progress.
+            if (ready && connected) void flushPending();
+            return {localSaved: true, pending: offline.pendingCount()};
+        };
+        window.fbVerifyBeneficiaryKeys = async function (ids) {
+            if (!connected || !ready) return null;
+            const snap = await get(ref(db, ROOT + '/beneficiaries'));
+            const data = snap.val() || {};
+            const matching = ids.filter(id => Object.prototype.hasOwnProperty.call(data, String(id))).length;
+            return {total: Object.keys(data).length, matching, expected: ids.length};
         };
 
         function applyAndRender(d) {
             beneficiaries = toArr(d.beneficiaries);
             grants = toArr(d.grants);
             distributionLogs = toArr(d.distributionLogs);
-            offline.saveLocal({ beneficiaries, grants, distributionLogs });
+            // A staged import is already durable. Avoid rewriting 16k records
+            // on each of the 100-record cloud acknowledgments.
+            if (!offline.pendingCount()) {
+                offline.saveLocal({ beneficiaries, grants, distributionLogs })
+                    .catch(error => {window.fbLastSyncError = String(error); console.error('IndexedDB save failed:', error); refreshBadge();});
+            }
             renderBeneficiaries();
             renderGrants();
             updateCategoryDropdowns();
@@ -951,6 +985,7 @@
                 // as the new server baseline, to protect saved offline edits.
                 if (!connected) { refreshBadge(); return; }
                 const rootData = snapshot.val() || {};
+                if (importStaging) return; // Preserve the on-disk import while its transaction commits.
                 cloudBeneficiariesCount = rootData.beneficiaries
                     ? Object.values(rootData.beneficiaries).filter(Boolean).length : 0;
                 cloudSnapshotAt = new Date().toISOString();
@@ -970,9 +1005,17 @@
             });
         }
 
-        onAuthStateChanged(auth, user => {
+        onAuthStateChanged(auth, async user => {
             if (!user) { window.location.replace('login.html'); return; }
-            offline.initialize(user.uid);
+            try {
+                await offline.initialize(user.uid);
+            } catch (error) {
+                console.error('IndexedDB could not be initialized:', error);
+                window.fbLastSyncError = String(error?.message || error);
+                window.fbSetBadge('error');
+                alert('تعذر فتح التخزين المحلي الآمن؛ لا تستورد البيانات قبل إصلاح مساحة الجهاز أو إعدادات المتصفح.');
+                return;
+            }
             loggedUser = user.displayName || (user.email || '').split('@')[0] || 'مسؤول';
             window.currentUserEmail = (user.email || '').toLowerCase();
             window.currentUserUid = user.uid;
@@ -1346,19 +1389,15 @@
             }
         }
 
-        function syncToFirebase() {
+        async function syncToFirebase() {
             try {
-                window.AtayaOffline.saveLocal({ beneficiaries, grants, distributionLogs });
-                if (!window.fbPush) return Promise.resolve(true);
-                return window.fbPush().then(() => true).catch(err => {
-                    console.error('تعذر حفظ التعديلات في قائمة المزامنة:', err);
-                    alert('تعذر حفظ التعديلات في قائمة المزامنة؛ تحقق من مساحة الجهاز.');
-                    return false;
-                });
-            } catch (err) {
-                console.error('تعذر حفظ البيانات محلياً:', err);
-                alert('تعذر حفظ البيانات محلياً؛ قد تكون مساحة المتصفح ممتلئة.');
-                return Promise.resolve(false);
+                if (!window.fbPush) throw new Error('مخزن البيانات المحلي غير جاهز');
+                await window.fbPush();
+                return true;
+            } catch (error) {
+                console.error('تعذر تسجيل التعديلات محليًا:', error);
+                alert('تعذر تأمين التعديلات على هذا الجهاز. لا تغلق الصفحة، واحفظ نسخة احتياطية.');
+                return false;
             }
         }
 
