@@ -1456,7 +1456,7 @@
         }
 
         function makeBackupBlob() {
-            return new Blob([JSON.stringify(getFullBackupData(), null, 2)], { type: 'application/json' });
+            return new Blob([JSON.stringify(getFullBackupData())], { type: 'application/json;charset=utf-8' });
         }
 
         async function uploadBackupToGoogleDrive() {
@@ -1498,36 +1498,84 @@
 
         function importBackupData(event) {
             if (!requirePermission("edit")) return;
-            const file = event.target.files[0];
+            const input = event.target;
+            const file = input.files?.[0];
             if (!file) return;
-
             const reader = new FileReader();
-            reader.onload = function(e) {
+            reader.onload = async function(e) {
                 try {
                     const parsed = JSON.parse(e.target.result);
-                    if (!parsed.beneficiaries || !parsed.grants || !parsed.distributionLogs) {
-                        return alert('ملف النسخة الاحتياطية غير صالح.');
+                    if (![parsed?.beneficiaries, parsed?.grants, parsed?.distributionLogs].every(Array.isArray)) {
+                        alert('ملف النسخة الاحتياطية غير صالح. يجب أن يحتوي على المستفيدين والعطايا وحركات الصرف.');
+                        return;
                     }
-
-                    if (confirm(`الملف يحتوي على:\n- ${parsed.beneficiaries.length} مستفيد\n- ${parsed.grants.length} عطية\n- ${parsed.distributionLogs.length} حركة صرف\nهل ترغب في استبدال البيانات الحالية بهذه النسخة ورفعها للسحابة؟`)) {
-                        beneficiaries = parsed.beneficiaries;
-                        grants = parsed.grants;
-                        distributionLogs = parsed.distributionLogs;
-
-                        syncToFirebase().then(saved => {
-                            if (!saved) return;
-                            alert('تم استرجاع البيانات محلياً. ستُزامَن مع السحابة عند توفر الاتصال.');
-                            closeBackupModal();
-                            location.reload();
-                        });
+                    const hasFields = Object.prototype.hasOwnProperty.call(parsed, 'beneficiaryFields');
+                    if (hasFields && (!parsed.beneficiaryFields || Array.isArray(parsed.beneficiaryFields) ||
+                        typeof parsed.beneficiaryFields !== 'object')) {
+                        alert('تعريفات الحقول الإضافية في النسخة غير صالحة. لم تُستعد أي بيانات.');
+                        return;
                     }
-                } catch (err) {
-                    alert('تعذر قراءة ملف النسخة الاحتياطية.');
+                    if (hasFields) {
+                        const valid = Object.values(parsed.beneficiaryFields).every(f =>
+                            f && typeof f.name === 'string' && f.name.trim() &&
+                            (f.aliases === undefined || Array.isArray(f.aliases)));
+                        if (!valid) {
+                            alert('تحتوي النسخة على تعريفات حقول غير صالحة. لم تُستعد البيانات.');
+                            return;
+                        }
+                        if (!permissionState.admin) {
+                            alert('استعادة الحقول الإضافية تتطلب صلاحية المدير. لم تتغير أي بيانات.');
+                            return;
+                        }
+                    }
+                    const message = 'هذه العملية تستبدل البيانات الحالية كاملةً، وليست استيراد Excel.\n' +
+                        'المستفيدون: ' + parsed.beneficiaries.length +
+                        '\nالعطايا: ' + parsed.grants.length +
+                        '\nحركات الصرف: ' + parsed.distributionLogs.length +
+                        (hasFields ? '\nتعريفات الحقول الإضافية: ' + Object.keys(parsed.beneficiaryFields).length : '') +
+                        '\n\nاحفظ نسخة احتياطية من بياناتك الحالية أولًا. هل تريد الاستمرار؟';
+                    if (!confirm(message)) return;
+
+                    // Restore shared field definitions first; a failed permission/connection check
+                    // must not replace the current beneficiary and distribution data.
+                    if (hasFields) {
+                        try {
+                            await window.fbPermissionUpdate({beneficiaryFields: parsed.beneficiaryFields});
+                        } catch (error) {
+                            console.error('Field schema restore rejected:', error);
+                            alert('تعذر استعادة تعريفات الحقول. يجب الاتصال بالإنترنت بحساب المدير. لم تُستعد بيانات المستفيدين.');
+                            return;
+                        }
+                    }
+                    const oldData = {beneficiaries, grants, distributionLogs};
+                    beneficiaries = parsed.beneficiaries;
+                    grants = parsed.grants;
+                    distributionLogs = parsed.distributionLogs;
+                    const saved = await syncToFirebase();
+                    if (!saved) {
+                        beneficiaries = oldData.beneficiaries;
+                        grants = oldData.grants;
+                        distributionLogs = oldData.distributionLogs;
+                        alert('تعذر حفظ البيانات المستعادة محليًا. لم يكتمل الاسترجاع.');
+                        return;
+                    }
+                    if (hasFields) window.setBeneficiaryGlobalFields?.(parsed.beneficiaryFields);
+                    alert('حُفظت النسخة على الجهاز. إذا كانت هناك تعديلات معلقة فستُزامَن عند توفر الاتصال؛ تحقق من حالة المزامنة.');
+                    closeBackupModal();
+                    location.reload();
+                } catch (error) {
+                    console.error('Local backup restore failed:', error);
+                    alert('تعذر قراءة الملف أو استعادة النسخة. لم يُؤكد اكتمال العملية.');
+                } finally {
+                    input.value = '';
                 }
+            };
+            reader.onerror = () => {
+                input.value = '';
+                alert('تعذر قراءة ملف النسخة الاحتياطية.');
             };
             reader.readAsText(file);
         }
-
 
         // Excel columns follow the same order as visible beneficiary fields.
         const BENEFICIARY_BASE_COLUMNS = ['اسم المستفيد', 'المنطقة', 'رقم الهاتف', 'عدد أفراد الأسرة', 'نسبة الاحتياج', 'الفئة'];
