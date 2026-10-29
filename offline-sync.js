@@ -106,16 +106,26 @@
         pendingCount() {
             return COLLECTIONS.reduce((n, col) => n + Object.keys(this.pending[col] || {}).length, 0);
         },
-        nextBatch() {
+        nextBatch(maxEntries = 100, maxBytes = 220000) {
+            // Bound each Firebase update. Large Excel imports must not be sent as
+            // a single multi-megabyte patch; successful records are acknowledged per batch.
             const patch = {};
             const entries = blank();
+            let count = 0, bytes = 0;
             for (const col of COLLECTIONS) {
                 for (const [id, item] of Object.entries(this.pending[col] || {})) {
+                    const path = col + '/' + id;
+                    const size = path.length * 2 + JSON.stringify(item).length * 2;
+                    if (count && (count >= maxEntries || bytes + size > maxBytes)) {
+                        return {patch, entries, count};
+                    }
                     entries[col][id] = item;
-                    patch[col + '/' + id] = item;
+                    patch[path] = item;
+                    count++;
+                    bytes += size;
                 }
             }
-            return { patch, entries };
+            return {patch, entries, count};
         },
         acknowledge(batch) {
             // Never erase a newer local edit made while this batch was being uploaded.
