@@ -919,6 +919,9 @@
             if (importStaging) throw new Error('عملية استيراد أخرى جارية');
             importStaging = true;
             try {
+                // Request persistent browser storage when available. This may be denied;
+                // IndexedDB remains usable, but a downloaded backup is still essential.
+                try { await navigator.storage?.persist?.(); } catch (_) {}
                 // Atomic durable snapshot + pending queue. Do not modify the UI first.
                 await offline.saveAndStage({beneficiaries: records, grants, distributionLogs});
                 beneficiaries = records;
@@ -1776,6 +1779,14 @@
                         const consumed = new Set([nameIdx, areaIdx, phoneIdx, famIdx, needIdx, catIdx,
                             ...extraColumnIndexes.map(f => f.index)].filter(i => i >= 0));
                         const unknown = headerRow.filter((name, i) => name && !consumed.has(i));
+                        if (unknown.length && rows.length > 100) {
+                            setAtayaImportStatus('توقف الاستيراد لحماية بيانات الأعمدة غير المعرّفة: ' +
+                                unknown.slice(0, 8).join('، ') + '. أضفها من إدارة الحقول أولًا.', 'error');
+                            alert('لا يمكن استيراد ملف كبير قبل تعريف الأعمدة التالية: ' +
+                                unknown.slice(0, 8).join('، ') +
+                                '\nأضف هذه الأعمدة من «إدارة الحقول وترتيبها» حتى لا تُفقد بياناتها.');
+                            return;
+                        }
                         if (unknown.length && !confirm('الأعمدة غير المعروفة: ' + unknown.slice(0, 8).join('، ') +
                             '\nلن تُحفظ بيانات هذه الأعمدة. عرّفها من «إدارة الحقول» أولًا. هل تريد الاستمرار؟')) {
                             setAtayaImportStatus('أُلغي الاستيراد لحماية الأعمدة غير المعرّفة.'); return;
