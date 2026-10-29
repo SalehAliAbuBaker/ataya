@@ -15,25 +15,30 @@
     const controls = [];
     let outsideListenerAdded = false;
 
+    const splitCategories = value => {
+        const seen = new Set();
+        return String(value || "").split(/[,،؛;\n]+/).map(s => s.trim().replace(/\s+/g, " "))
+            .filter(s => { const key = normalize(s); if (!key || seen.has(key)) return false; seen.add(key); return true; });
+    };
+
     function categories() {
         const map = new Map();
         const records = typeof beneficiaries === "undefined" ? [] : beneficiaries;
         for (const item of records) {
-            const name = String(item?.category || "").trim();
-            const key = normalize(name);
-            if (!key) continue;
-            if (!map.has(key)) map.set(key, { name, count: 0 });
-            map.get(key).count++;
+            for (const name of splitCategories(item?.category)) {
+                const key = normalize(name);
+                if (!map.has(key)) map.set(key, { name, count: 0 });
+                map.get(key).count++;
+            }
         }
         return Array.from(map.values())
             .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, "ar"));
     }
 
     function canonicalCategory(value) {
-        const typed = String(value || "").trim().replace(/\s+/g, " ");
-        if (!typed) return "عام";
-        const existing = categories().find(item => normalize(item.name) === normalize(typed));
-        return existing?.name || typed;
+        const current = categories();
+        const parts = splitCategories(value).map(name => current.find(c => normalize(c.name) === normalize(name))?.name || name);
+        return parts.length ? parts.join("، ") : "عام";
     }
 
     function create(kind, input, select) {
@@ -66,7 +71,13 @@
 
         function choose(item) {
             if (!item) return;
-            input.value = item.name;
+            if (kind === "entry") {
+                const fragments = String(input.value || "").split(/[,،؛;\n]+/);
+                fragments.pop(); // Replace only the category being typed; preserve earlier selections.
+                input.value = canonicalCategory([...fragments, item.name].join("، "));
+            } else {
+                input.value = item.name;
+            }
             if (select) {
                 select.value = item.value;
                 select.dispatchEvent(new Event("change", { bubbles: true }));
@@ -77,7 +88,8 @@
         }
 
         function render(showAll = false) {
-            const search = showAll ? "" : normalize(input.value);
+            const lastCategory = kind === "entry" ? String(input.value || "").split(/[,،؛;\n]+/).pop() : input.value;
+            const search = showAll ? "" : normalize(lastCategory);
             let available = categories();
             let entries;
             if (kind === "entry") {
@@ -103,7 +115,7 @@
             if (kind === "entry") {
                 const title = document.createElement("p");
                 title.className = "ataya-category-heading";
-                title.textContent = available.length + " فئة مسجلة — اختر فئة أو اكتب فئة جديدة";
+                title.textContent = available.length + " صفة مسجلة — اختر أو أضف أكثر من صفة بالفاصلة «،»";
                 menu.appendChild(title);
             }
             if (!ctrl.visible.length) {
@@ -135,10 +147,10 @@
                 const add = document.createElement("button");
                 add.type = "button";
                 add.className = "ataya-category-new";
-                add.textContent = 'استخدام فئة جديدة: «' + input.value.trim().slice(0, 75) + '»';
+                add.textContent = 'استخدام صفة جديدة: «' + String(lastCategory).trim().slice(0, 75) + '»';
                 add.addEventListener("mousedown", event => event.preventDefault());
                 add.addEventListener("click", () => {
-                    input.value = input.value.trim().replace(/\s+/g, " ");
+                    input.value = canonicalCategory(input.value);
                     hide();
                 });
                 menu.appendChild(add);
@@ -180,14 +192,13 @@
                 event.preventDefault(); ctrl.active = (ctrl.active - 1 + ctrl.visible.length) % ctrl.visible.length; updateActive();
             } else if (event.key === "Enter") {
                 event.preventDefault();
-                if (ctrl.visible[ctrl.active] && (kind !== "entry" ||
-                    !input.value.trim() || normalize(ctrl.visible[ctrl.active].name) === normalize(input.value) ||
-                    !ctrl.visible.some(item => normalize(item.name) === normalize(input.value)))) {
-                    choose(ctrl.visible[ctrl.active]);
-                } else {
-                    if (kind === "entry") input.value = canonicalCategory(input.value);
-                    hide();
-                }
+                if (kind === "entry") {
+                    const last = String(input.value || "").split(/[,،؛;\n]+/).pop().trim();
+                    const active = ctrl.visible[ctrl.active];
+                    if (active && normalize(active.name) === normalize(last)) choose(active);
+                    else { input.value = canonicalCategory(input.value); hide(); }
+                } else if (ctrl.visible[ctrl.active]) choose(ctrl.visible[ctrl.active]);
+                else hide();
             }
         });
 
