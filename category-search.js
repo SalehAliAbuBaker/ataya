@@ -226,6 +226,177 @@
         return ctrl;
     }
 
+
+    // Smart multi-select for beneficiary entry. Keep the legacy comma-separated
+    // category string in #benCategory for Firebase, exports and old records.
+    let multiEntry = null;
+    function createEntry() {
+        const store = document.getElementById("benCategory");
+        const input = document.getElementById("benCategoryQuery");
+        const chips = document.getElementById("benCategoryChips");
+        const menu = document.getElementById("benCategorySuggestions");
+        const root = document.getElementById("benCategoryPicker");
+        if (!store || !input || !chips || !menu || !root || input.dataset.multiReady) return;
+        input.dataset.multiReady = "1";
+        input.setAttribute("aria-controls", menu.id);
+        let selected = [];
+        let visible = [];
+        let active = 0;
+
+        function hide() {
+            menu.hidden = true;
+            input.setAttribute("aria-expanded", "false");
+            input.removeAttribute("aria-activedescendant");
+        }
+        function persist() {
+            store.value = selected.join("، ");
+            store.dispatchEvent(new Event("change", {bubbles: true}));
+        }
+        function showChips() {
+            chips.replaceChildren();
+            selected.forEach((category, index) => {
+                const tag = document.createElement("span");
+                tag.className = "inline-flex items-center gap-1 rounded-lg bg-indigo-100 text-indigo-900 px-2 py-1 text-xs font-semibold";
+                const name = document.createElement("span");
+                name.textContent = category;
+                const remove = document.createElement("button");
+                remove.type = "button";
+                remove.className = "rounded px-1 hover:bg-indigo-200";
+                remove.textContent = "×";
+                remove.setAttribute("aria-label", "إزالة صفة " + category);
+                remove.addEventListener("click", () => {
+                    selected.splice(index, 1);
+                    persist();
+                    showChips();
+                    input.focus();
+                    renderSuggestions();
+                });
+                tag.append(name, remove);
+                chips.appendChild(tag);
+            });
+        }
+        function addOne(value, focus = true) {
+            const parts = splitCategories(value);
+            const known = categories();
+            for (const part of parts) {
+                const original = known.find(c => normalize(c.name) === normalize(part))?.name || part;
+                if (!selected.some(s => normalize(s) === normalize(original))) selected.push(original);
+            }
+            persist();
+            showChips();
+            input.value = "";
+            if (focus) input.focus();
+            renderSuggestions();
+        }
+        function commit() {
+            const raw = input.value.trim();
+            if (raw) addOne(raw, false);
+            hide();
+        }
+        function syncFromStore() {
+            selected = splitCategories(store.value);
+            input.value = "";
+            showChips();
+            hide();
+        }
+        function renderSuggestions() {
+            const query = normalize(input.value);
+            visible = categories().filter(c => !selected.some(s => normalize(s) === normalize(c.name)) &&
+                (!query || normalize(c.name).includes(query))).slice(0, 30);
+            active = 0;
+            menu.replaceChildren();
+            const heading = document.createElement("p");
+            heading.className = "ataya-category-heading";
+            heading.textContent = query ? "صفات مطابقة — اختر صفة أو أضف جديدة" : "اختر صفة من المسجلين أو اكتب صفة جديدة";
+            menu.appendChild(heading);
+            visible.forEach((item, index) => {
+                const row = document.createElement("button");
+                row.type = "button";
+                row.className = "ataya-category-item";
+                row.id = menu.id + "-" + index;
+                row.setAttribute("role", "option");
+                row.setAttribute("aria-selected", index === active ? "true" : "false");
+                const name = document.createElement("span");
+                name.textContent = item.name;
+                const count = document.createElement("small");
+                count.textContent = item.count + " مستفيد";
+                row.append(name, count);
+                row.addEventListener("pointerdown", e => e.preventDefault());
+                row.addEventListener("click", () => addOne(item.name));
+                menu.appendChild(row);
+            });
+            if (input.value.trim() && !selected.some(s => normalize(s) === query) &&
+                    !categories().some(c => normalize(c.name) === query)) {
+                const add = document.createElement("button");
+                add.type = "button";
+                add.className = "ataya-category-new";
+                add.textContent = "＋ إضافة صفة جديدة: «" + input.value.trim().slice(0, 70) + "»";
+                add.addEventListener("pointerdown", e => e.preventDefault());
+                add.addEventListener("click", () => addOne(input.value));
+                menu.appendChild(add);
+            }
+            if (!visible.length && !input.value.trim()) {
+                const empty = document.createElement("p");
+                empty.className = "ataya-category-empty";
+                empty.textContent = "اكتب صفة لإضافتها";
+                menu.appendChild(empty);
+            }
+            if (visible.length === 30) {
+                const more = document.createElement("p");
+                more.className = "ataya-category-heading";
+                more.textContent = "اكتب جزءًا من الصفة لعرض المزيد";
+                menu.appendChild(more);
+            }
+            menu.hidden = false;
+            input.setAttribute("aria-expanded", "true");
+        }
+        input.addEventListener("focus", renderSuggestions);
+        input.addEventListener("input", () => {
+            if (/[,،؛;\n]/.test(input.value)) {
+                const fragments = input.value.split(/[,،؛;\n]+/);
+                const trailing = fragments.pop() || "";
+                const completed = fragments.join("، ");
+                if (completed.trim()) addOne(completed, false);
+                input.value = trailing;
+            }
+            renderSuggestions();
+        });
+        input.addEventListener("keydown", event => {
+            if (event.key === "Escape") { hide(); return; }
+            if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+                event.preventDefault();
+                if (menu.hidden) renderSuggestions();
+                if (visible.length) {
+                    active = (active + (event.key === "ArrowDown" ? 1 : -1) + visible.length) % visible.length;
+                    menu.querySelectorAll('[role="option"]').forEach((item, index) => {
+                        item.setAttribute("aria-selected", index === active ? "true" : "false");
+                        if (index === active) item.scrollIntoView({block: "nearest"});
+                    });
+                }
+            } else if (event.key === "Enter") {
+                event.preventDefault();
+                if (input.value.trim()) {
+                    const exact = visible.find(c => normalize(c.name) === normalize(input.value));
+                    addOne(exact?.name || (active > 0 ? visible[active]?.name : null) || input.value);
+                }
+            } else if (event.key === "Tab") {
+                commit();
+            } else if (event.key === "Backspace" && !input.value && selected.length) {
+                selected.pop(); persist(); showChips();
+            }
+        });
+        input.addEventListener("blur", () => setTimeout(() => {
+            if (!root.contains(document.activeElement)) commit();
+        }, 150));
+        document.addEventListener("pointerdown", event => {
+            if (!root.contains(event.target)) hide();
+        });
+        multiEntry = {sync: syncFromStore, commit, refresh: () => {
+            if (!menu.hidden) renderSuggestions();
+        }};
+        syncFromStore();
+    }
+
     function createSelect(id, searchId, kind) {
         const select = document.getElementById(id);
         if (!select || document.getElementById(searchId)) return;
@@ -243,12 +414,13 @@
     }
 
     function initialize() {
-        create("entry", document.getElementById("benCategory"), null);
+        createEntry();
         createSelect("distCategorySelect", "atayaCategorySearchDist", "dist");
         createSelect("filterCategory", "atayaCategorySearchReport", "report");
     }
 
     function refresh() {
+        multiEntry?.refresh();
         controls.forEach(ctrl => {
             if (ctrl.select && (ctrl.menu.hidden || document.activeElement !== ctrl.input)) {
                 const chosen = Array.from(ctrl.select.options).find(o => o.value === ctrl.select.value);
@@ -258,7 +430,8 @@
         });
     }
 
-    window.AtayaCategories = { initialize, refresh, canonicalCategory };
+    window.AtayaCategories = { initialize, refresh, canonicalCategory,
+        syncEntry: () => multiEntry?.sync(), commitEntry: () => multiEntry?.commit() };
     if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", initialize, { once: true });
     else initialize();
 })();
