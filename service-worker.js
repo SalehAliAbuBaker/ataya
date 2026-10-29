@@ -1,10 +1,10 @@
 /* Offline application shell and public library assets only.
    Never cache Firebase database, authentication, or Google Drive API responses. */
-const VERSION = 'ataya-shell-v4-ataya-1.0.1';
+const VERSION = 'ataya-shell-v5-ataya-1.0.2';
 const APP_SHELL = [
     './', './index.html', './login.html',
     './manifest.json?v=2', './icon.png?v=2', './icon-192.png?v=2', './offline-sync.js',
-    './category-search.js?v=1', './voice-input.js?v=1'
+    './category-search.js?v=2', './voice-input.js?v=1'
 ];
 const PRELOAD = [
     { url: 'https://cdn.tailwindcss.com', mode: 'no-cors' },
