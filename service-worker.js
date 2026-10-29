@@ -1,6 +1,6 @@
 /* Offline application shell and public library assets only.
    Never cache Firebase database, authentication, or Google Drive API responses. */
-const VERSION = 'ataya-shell-v6-ataya-1.0.3';
+const VERSION = 'ataya-shell-v7-ataya-1.0.4';
 const APP_SHELL = [
     './', './index.html', './login.html',
     './manifest.json?v=2', './icon.png?v=2', './icon-192.png?v=2', './offline-sync.js',
