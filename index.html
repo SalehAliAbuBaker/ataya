@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>سجل العطايا | الإصدار 1.0.0</title>
+    <title>سجل العطايا | الإصدار 1.0.1</title>
 
     <!-- أيقونة التطبيق وإعدادات التثبيت على شاشة الجوال -->
     <link rel="icon" type="image/png" href="icon.png?v=2">
@@ -148,7 +148,7 @@
         <div class="max-w-4xl mx-auto flex flex-wrap justify-between items-center gap-2">
             <div class="flex items-center gap-2">
                 <img src="icon.png?v=2" alt="" onerror="this.style.display='none'" class="w-7 h-7 rounded-md bg-white/10 p-0.5 object-contain">
-                <div><h1 class="text-base md:text-lg font-bold">سجل العطايا</h1><p class="text-[10px] text-indigo-100 mt-0.5">الإصدار 1.0.0</p></div>
+                <div><h1 class="text-base md:text-lg font-bold">سجل العطايا</h1><button type="button" onclick="showAtayaReleaseNotice(true)" class="text-[10px] text-indigo-100 mt-0.5 hover:underline">الإصدار 1.0.1 · ما الجديد؟</button></div>
                 <span id="cloudStatusBadge" class="text-[10px] bg-indigo-900/70 border border-indigo-400/40 px-2 py-0.5 rounded-full flex items-center gap-1">
                     <span class="inline-block w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span> جاري المزامنة...
                 </span>
@@ -285,6 +285,7 @@
                 <input type="file" id="excelFile" accept=".xlsx, .xls, .csv" class="hidden" onchange="importExcel(event)">
                 <div class="flex flex-wrap gap-2 justify-end">
                     <button type="button" onclick="downloadExcelTemplate()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg font-semibold shadow-xs">⬇ تنزيل نموذج Excel</button>
+                    <button type="button" data-permission="reports" onclick="exportBeneficiariesExcel()" class="bg-slate-700 hover:bg-slate-800 text-white px-3 py-2 rounded-lg font-semibold shadow-xs">⬇ تصدير الأسماء Excel</button>
                     <button type="button" data-permission="add" onclick="document.getElementById('excelFile').click()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-lg font-semibold shadow-xs">رفع ملف إكسل</button>
                 </div>
             </div>
@@ -332,7 +333,23 @@
                         </div>
                     </div>
 
-                    <div class="mb-3 rounded-lg border border-indigo-200 bg-indigo-50 p-3"><div class="flex flex-wrap items-center justify-between gap-2 mb-2"><h3 class="text-sm font-bold text-indigo-800">حقول المستفيدين الإضافية</h3><button type="button" id="addBeneficiaryFieldBtn" onclick="addBeneficiaryGlobalField()" class="hidden text-xs font-bold border border-indigo-300 bg-white rounded-lg px-3 py-1.5">+ إضافة حقل عام</button></div><p class="text-xs text-slate-500 mb-2">الحقول التي يضيفها المدير تظهر لجميع المستفيدين، وتُدرج في نموذج Excel تلقائيًا.</p><div id="beneficiaryExtraFields" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div></div>
+
+                    <div class="mb-3 rounded-lg border border-indigo-200 bg-indigo-50 p-3">
+                        <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+                            <h3 class="text-sm font-bold text-indigo-800">حقول المستفيدين الإضافية</h3>
+                            <button type="button" id="manageBeneficiaryFieldsBtn" data-permission="admin" onclick="toggleBeneficiaryFieldsManager()" class="hidden text-xs font-bold border border-indigo-300 bg-white rounded-lg px-3 py-1.5">⚙ إدارة الحقول وترتيبها</button>
+                        </div>
+                        <p class="text-xs text-slate-500 mb-2">ترتيب الحقول المعتمد يظهر في النموذج وExcel. الحقول المخفية تبقى بياناتها محفوظة.</p>
+                        <div id="beneficiaryFieldManager" class="hidden mb-3 bg-white border border-indigo-200 rounded-lg p-3">
+                            <div class="flex items-center justify-between flex-wrap gap-2 mb-2">
+                                <strong class="text-xs text-indigo-900">ترتيب الحقول العامة</strong>
+                                <button type="button" id="addBeneficiaryFieldBtn" data-permission="admin" onclick="addBeneficiaryGlobalField()" class="hidden text-xs font-bold bg-indigo-600 text-white rounded-lg px-3 py-1.5">+ إضافة حقل</button>
+                            </div>
+                            <p class="text-[11px] text-slate-500 mb-2">رتب الحقول بالأسهم، أو أعد تسميتها أو أخفها؛ يتطلب الحفظ الاتصال بالإنترنت.</p>
+                            <div id="beneficiaryFieldManagerList" class="space-y-2"></div>
+                        </div>
+                        <div id="beneficiaryExtraFields" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
+                    </div>
                     <button type="submit" id="benSubmitBtn" class="w-full bg-indigo-600 text-white font-semibold py-2.5 rounded-lg hover:bg-indigo-700 transition text-sm">حفظ المستفيد في السجل</button>
                 </form>
             </div>
@@ -719,6 +736,13 @@
         </div>
     </div>
 
+
+    <div id="atayaReleaseNotice" class="hidden fixed inset-x-3 top-20 mx-auto max-w-md rounded-xl bg-white border border-emerald-200 p-4 shadow-2xl text-slate-800" style="z-index:85" role="status">
+        <div class="flex items-start justify-between gap-3">
+            <div><strong id="atayaReleaseHeading" class="text-sm text-emerald-800">مستجدات الإصدار 1.0.1</strong><p id="atayaReleaseText" class="text-xs text-slate-600 mt-1 leading-relaxed"></p></div>
+            <button type="button" onclick="closeAtayaReleaseNotice()" class="px-2 py-1 text-slate-500 font-bold" aria-label="إغلاق إشعار الإصدار">✕</button>
+        </div>
+    </div>
     <!-- نافذة تأكيد الخروج -->
     <div id="exitConfirmModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4" style="z-index:80">
         <div class="bg-white rounded-2xl max-w-xs w-full p-5 shadow-2xl border border-slate-200 text-center">
@@ -1002,6 +1026,9 @@
             if (adminNav) adminNav.classList.toggle('hidden', !permissionState.admin);
             const customFieldButton = document.getElementById('addBeneficiaryFieldBtn');
             if (customFieldButton) customFieldButton.classList.toggle('hidden', !permissionState.admin);
+            const managerBtn = document.getElementById('manageBeneficiaryFieldsBtn');
+            if (managerBtn) managerBtn.classList.toggle('hidden', !permissionState.admin);
+            if (!permissionState.admin) document.getElementById('beneficiaryFieldManager')?.classList.add('hidden');
 
             const reportsAllowed = permissionState.admin || permissionState.reports;
             ['nav-reportsSection', 'nav-statementsSection'].forEach(id => {
