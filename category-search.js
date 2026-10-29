@@ -21,7 +21,9 @@
             .filter(s => { const key = normalize(s); if (!key || seen.has(key)) return false; seen.add(key); return true; });
     };
 
+    let cachedCategories = null;
     function categories() {
+        if (cachedCategories) return cachedCategories;
         const map = new Map();
         const records = typeof beneficiaries === "undefined" ? [] : beneficiaries;
         for (const item of records) {
@@ -31,8 +33,9 @@
                 map.get(key).count++;
             }
         }
-        return Array.from(map.values())
+        cachedCategories = Array.from(map.values())
             .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, "ar"));
+        return cachedCategories;
     }
 
     function canonicalCategory(value) {
@@ -377,7 +380,7 @@
                 event.preventDefault();
                 if (input.value.trim()) {
                     const exact = visible.find(c => normalize(c.name) === normalize(input.value));
-                    addOne(exact?.name || (active > 0 ? visible[active]?.name : null) || input.value);
+                    addOne(exact?.name || (visible.length === 1 ? visible[0].name : null) || (active > 0 ? visible[active]?.name : null) || input.value);
                 }
             } else if (event.key === "Tab") {
                 commit();
@@ -420,6 +423,7 @@
     }
 
     function refresh() {
+        cachedCategories = null;
         multiEntry?.refresh();
         controls.forEach(ctrl => {
             if (ctrl.select && (ctrl.menu.hidden || document.activeElement !== ctrl.input)) {
