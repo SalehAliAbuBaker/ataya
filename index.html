@@ -276,8 +276,9 @@
                 <div class="flex flex-wrap gap-2 justify-end">
                     <button type="button" onclick="downloadExcelTemplate()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg font-semibold shadow-xs">⬇ تنزيل نموذج Excel</button>
                     <button type="button" data-permission="reports" onclick="exportBeneficiariesExcel()" class="bg-slate-700 hover:bg-slate-800 text-white px-3 py-2 rounded-lg font-semibold shadow-xs">⬇ تصدير الأسماء Excel</button>
-                    <button type="button" data-permission="add" onclick="document.getElementById('excelFile').click()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-lg font-semibold shadow-xs">رفع ملف إكسل</button>
+                    <button type="button" id="atayaExcelImportButton" data-permission="add" onclick="document.getElementById('excelFile').click()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-lg font-semibold shadow-xs">رفع ملف إكسل</button>
                 </div>
+                <p id="atayaExcelImportStatus" role="status" aria-live="polite" class="w-full text-xs text-slate-700 mt-2">استيراد البيانات الكبيرة: يُحفظ الملف محليًا أولًا، ثم تتم المزامنة السحابية على دفعات من 100 اسم.</p>
             </div>
 
             <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 mb-4">
@@ -840,6 +841,19 @@
             lastError: window.fbLastSyncError || ''
         });
         window.fbRetryPending = () => flushPending();
+        window.fbAwaitPendingUpload = async () => {
+            if (!ready || !connected) return false;
+            // A concurrent connectivity listener might already own the upload loop.
+            // It remains responsible for new records until pendingCount reaches zero.
+            for (let i = 0; i < 2400; i++) {
+                if (!ready || !connected) return false;
+                if (!sending && offline.pendingCount()) await flushPending();
+                if (!sending && !offline.pendingCount()) return true;
+                if (window.fbLastSyncError) return false;
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
+            return false;
+        };
         window.fbPermissionUpdate = updates => {
             if (!connected) return Promise.reject(new Error('يلزم الاتصال بالإنترنت لتعديل الصلاحيات'));
             return update(ref(db, ROOT), updates);
@@ -1698,47 +1712,53 @@
         }
 
         // ================= استيراد الإكسل =================
+        // Excel import: only report success after durable local commit AND Firebase verification.
+        let atayaImportBusy = false;
+        function setAtayaImportStatus(message, kind = 'info') {
+            const el = document.getElementById('atayaExcelImportStatus');
+            if (!el) return;
+            el.textContent = message;
+            el.className = 'w-full text-xs mt-2 ' +
+                (kind === 'error' ? 'text-rose-800' : kind === 'success' ? 'text-emerald-800' :
+                    kind === 'pending' ? 'text-amber-800' : 'text-slate-700');
+        }
         function importExcel(event) {
             if (!requirePermission("add")) return;
-            const file = event.target.files[0];
+            if (atayaImportBusy) return alert('توجد عملية استيراد أخرى قيد التنفيذ.');
+            const input = event.target;
+            const file = input.files?.[0];
             if (!file) return;
-
+            if (typeof XLSX === 'undefined') { input.value = ''; return alert('مكتبة Excel غير متاحة حاليًا.'); }
             const reader = new FileReader();
-            reader.onload = function(e) {
+            atayaImportBusy = true;
+            const importButton = document.getElementById('atayaExcelImportButton');
+            if (importButton) importButton.disabled = true;
+            setAtayaImportStatus('جاري فحص ملف Excel والتحقق من الأسماء...', 'pending');
+            reader.onload = async function(e) {
                 try {
-                    const data = new Uint8Array(e.target.result);
-                    const workbook = XLSX.read(data, { type: 'array' });
+                    const workbook = XLSX.read(new Uint8Array(e.target.result), {type: 'array'});
                     const sheet = workbook.Sheets[workbook.SheetNames[0]];
-                    const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
-
-                    if (!rows || rows.length === 0) return alert('الملف فارغ.');
-
+                    if (!sheet) throw new Error('لا توجد ورقة أسماء في ملف Excel.');
+                    const rows = XLSX.utils.sheet_to_json(sheet, {header: 1, defval: ''});
+                    if (!rows.length) throw new Error('الملف فارغ.');
                     let nameIdx = 0, areaIdx = 1, phoneIdx = 2, famIdx = 3, needIdx = 4, catIdx = 5;
                     let startRow = 0;
-
-                    const headerRow = rows[0].map(cell => (cell ? cell.toString().trim() : ''));
+                    const headerRow = rows[0].map(cell => String(cell ?? '').trim());
                     const exactName = headerRow.findIndex(h => normalizeArabic(h) === normalizeArabic('اسم المستفيد'));
                     const foundName = exactName >= 0 ? exactName : headerRow.findIndex(h => h.includes('اسم') || h.toLowerCase() === 'name');
                     if (foundName !== -1) {
-                        startRow = 1;
-                        nameIdx = foundName;
+                        startRow = 1; nameIdx = foundName;
                         areaIdx = phoneIdx = famIdx = needIdx = catIdx = -1;
-                        const foundArea = headerRow.findIndex(h => h.includes('منطق') || h.includes('حي') || h.toLowerCase() === 'area');
-                        if (foundArea !== -1) areaIdx = foundArea;
-                        const foundPhone = headerRow.findIndex(h => h.includes('هاتف') || h.includes('تواصل') || h.includes('جوال') || h.toLowerCase() === 'phone');
-                        if (foundPhone !== -1) phoneIdx = foundPhone;
-                        const foundFam = headerRow.findIndex(h => h.includes('أفراد') || h.includes('اسر') || h.includes('أسر') || h.toLowerCase() === 'family');
-                        if (foundFam !== -1) famIdx = foundFam;
-                        const foundNeed = headerRow.findIndex(h => h.includes('نسب') || h.includes('احتياج') || h.toLowerCase() === 'need');
-                        if (foundNeed !== -1) needIdx = foundNeed;
-                        const foundCat = headerRow.findIndex(h => h.includes('فئ') || h.includes('فئة') || h.toLowerCase() === 'category');
-                        if (foundCat !== -1) catIdx = foundCat;
+                        const findHeader = check => headerRow.findIndex(check);
+                        areaIdx = findHeader(h => h.includes('منطق') || h.includes('حي') || h.toLowerCase() === 'area');
+                        phoneIdx = findHeader(h => h.includes('هاتف') || h.includes('تواصل') || h.includes('جوال') || h.toLowerCase() === 'phone');
+                        famIdx = findHeader(h => h.includes('أفراد') || h.includes('اسر') || h.includes('أسر') || h.toLowerCase() === 'family');
+                        needIdx = findHeader(h => h.includes('نسب') || h.includes('احتياج') || h.toLowerCase() === 'need');
+                        catIdx = findHeader(h => h.includes('فئ') || h.includes('فئة') || h.toLowerCase() === 'category');
                     }
-
-                    // Match columns by stable ID metadata, current name, or prior field names.
                     const metadataSheet = workbook.Sheets['تعريف الحقول'];
-                    const metadataRows = metadataSheet
-                        ? XLSX.utils.sheet_to_json(metadataSheet, {header: 1, defval: ''}).slice(1) : [];
+                    const metadataRows = metadataSheet ?
+                        XLSX.utils.sheet_to_json(metadataSheet, {header: 1, defval: ''}).slice(1) : [];
                     const exportedNames = new Map(metadataRows.map(row =>
                         [String(row[0] || '').trim(), String(row[1] || '').trim()]));
                     const extraColumnIndexes = beneficiaryGlobalFields.map(f => {
@@ -1749,65 +1769,110 @@
                     if (startRow) {
                         const consumed = new Set([nameIdx, areaIdx, phoneIdx, famIdx, needIdx, catIdx,
                             ...extraColumnIndexes.map(f => f.index)].filter(i => i >= 0));
-                        const otherColumns = headerRow.filter((value, i) => value && !consumed.has(i));
-                        if (otherColumns.length && !confirm('توجد أعمدة غير معرفة: ' +
-                            otherColumns.slice(0, 8).join('، ') +
-                            '\nلن يتم استيرادها. أضفها من إدارة الحقول أولًا للاحتفاظ بها. هل تريد الاستمرار؟')) return;
+                        const unknown = headerRow.filter((name, i) => name && !consumed.has(i));
+                        if (unknown.length && !confirm('الأعمدة غير المعروفة: ' + unknown.slice(0, 8).join('، ') +
+                            '\nلن تُحفظ بيانات هذه الأعمدة. عرّفها من «إدارة الحقول» أولًا. هل تريد الاستمرار؟')) {
+                            setAtayaImportStatus('أُلغي الاستيراد لحماية الأعمدة غير المعرّفة.'); return;
+                        }
                     }
                     const knownNames = new Set(beneficiaries.map(b => normalizeArabic(b.name)));
-                    let addedCount = 0;
-                    let skippedCount = 0;
-
+                    const knownIds = new Set(beneficiaries.map(b => String(b.id)));
+                    const newRecords = [], newIds = [];
+                    let skippedCount = 0, blankCount = 0;
+                    let nextId = Date.now() * 1000;
                     for (let i = startRow; i < rows.length; i++) {
                         const row = rows[i];
-                        if (!row || row.length === 0) continue;
-
-                        const rawName = row[nameIdx] ? row[nameIdx].toString().trim() : '';
-                        if (!rawName || rawName === 'الاسم' || rawName === 'اسم المستفيد') continue;
-
+                        if (!row || !row.length) continue;
+                        const rawName = String(row[nameIdx] ?? '').trim();
+                        if (!rawName || rawName === 'الاسم' || rawName === 'اسم المستفيد') {blankCount++; continue;}
                         const normNew = normalizeArabic(rawName);
-                        if (knownNames.has(normNew)) {
-                            skippedCount++;
-                            continue;
-                        }
-
-                        const areaVal = row[areaIdx] ? row[areaIdx].toString().trim() : 'غير محدد';
-                        const phoneVal = row[phoneIdx] ? row[phoneIdx].toString().trim() : '-';
-                        const famVal = row[famIdx] !== undefined && row[famIdx] !== '' ? row[famIdx].toString().trim() : '-';
-                        
-                        let needVal = null;
-                        if (row[needIdx] !== undefined && row[needIdx] !== '') {
-                            const parsedNeed = parseFloat(row[needIdx].toString().replace('%', '').trim());
-                            if (!isNaN(parsedNeed)) needVal = parsedNeed;
-                        }
-
-                        const catVal = normalizeBeneficiaryCategories(row[catIdx] ?? '');
-
-                        beneficiaries.unshift({
-                            id: uidGen(),
-                            name: rawName,
-                            area: areaVal,
-                            phone: phoneVal,
-                            familyCount: famVal,
-                            needPercent: needVal,
-                            category: catVal,
-                            extraFields: Object.fromEntries(extraColumnIndexes.filter(f => f.index >= 0).map(f => [f.id, String(row[f.index] ?? '').trim()]))
+                        if (knownNames.has(normNew)) {skippedCount++; continue;}
+                        const cell = index => index >= 0 ? row[index] : '';
+                        const areaVal = String(cell(areaIdx) ?? '').trim() || 'غير محدد';
+                        const phoneVal = String(cell(phoneIdx) ?? '').trim() || '-';
+                        const famVal = String(cell(famIdx) ?? '').trim() || '-';
+                        const rawNeed = String(cell(needIdx) ?? '').replace('%','').trim();
+                        const parsedNeed = rawNeed ? Number.parseFloat(rawNeed) : NaN;
+                        const id = String(nextId++);
+                        while (knownIds.has(String(nextId))) nextId++;
+                        knownIds.add(id);
+                        newIds.push(id);
+                        newRecords.push({
+                            id: Number(id), name: rawName, area: areaVal, phone: phoneVal,
+                            familyCount: famVal, needPercent: Number.isFinite(parsedNeed) ? parsedNeed : null,
+                            category: normalizeBeneficiaryCategories(cell(catIdx)),
+                            extraFields: Object.fromEntries(extraColumnIndexes.filter(f => f.index >= 0)
+                                .map(f => [f.id, String(row[f.index] ?? '').trim()]))
                         });
                         knownNames.add(normNew);
-                        addedCount++;
                     }
-
-                    syncToFirebase();
-                    alert(`تم استيراد (${addedCount}) مستفيد بنجاح.\nتم تجاهل (${skippedCount}) اسم مكرر تلقائياً.`);
-                    renderBeneficiaries();
-                    updateCategoryDropdowns();
-                } catch (err) {
-                    alert('حدث خطأ أثناء قراءة ملف الإكسل.');
+                    if (!newRecords.length) {
+                        setAtayaImportStatus('لم تُضف أسماء جديدة. المكرر: ' + skippedCount + '.');
+                        alert('لم توجد أسماء جديدة للاستيراد.\nالأسماء المكررة: ' + skippedCount);
+                        return;
+                    }
+                    if (!confirm('الملف يحتوي على ' + newRecords.length + ' اسم جديد، و' + skippedCount +
+                        ' اسم مكرر.\nستُحفظ الأسماء الجديدة أولًا في الجهاز ثم ترفع على دفعات إلى Firebase.\n' +
+                        'هل أخذت نسخة احتياطية محلية وتريد المتابعة؟')) {
+                        setAtayaImportStatus('أُلغي الاستيراد دون تغيير البيانات.'); return;
+                    }
+                    setAtayaImportStatus('جاري تأمين ' + newRecords.length + ' مستفيدًا في IndexedDB قبل المزامنة...', 'pending');
+                    if (typeof window.fbStageBeneficiaryImport !== 'function') throw new Error('مخزن IndexedDB غير جاهز');
+                    const merged = [...newRecords, ...beneficiaries];
+                    await window.fbStageBeneficiaryImport(merged);
+                    // From here onward the data are durable on THIS device, even if upload fails.
+                    const staged = window.fbSyncDiagnostics?.();
+                    const pendingStart = staged?.pendingCount ?? 0;
+                    setAtayaImportStatus('تم الحفظ على الجهاز: ' + newRecords.length +
+                        ' اسم. المتبقي للسحابة: ' + pendingStart + ' تعديل. لا تمسح بيانات هذا الجهاز.', 'pending');
+                    window.atayaOnBatchProgress = remaining => {
+                        setAtayaImportStatus('محفوظ محليًا: ' + newRecords.length +
+                            ' اسم. جارٍ الرفع للسحابة: ' + Math.max(0, pendingStart - remaining) +
+                            ' من ' + pendingStart + ' تعديل؛ المتبقي: ' + remaining + '.', 'pending');
+                    };
+                    const cloudDone = await window.fbAwaitPendingUpload?.();
+                    window.atayaOnBatchProgress = null;
+                    if (!cloudDone) {
+                        const pending = window.fbSyncDiagnostics?.().pendingCount ?? '?';
+                        setAtayaImportStatus('الأسماء محفوظة على هذا الجهاز، لكن تأكيد المزامنة لم يكتمل. المتبقي: ' +
+                            pending + '. عند عودة الاتصال ستُستأنف تلقائيًا. لا تعِد الاستيراد ولا تمسح بيانات الجهاز.', 'pending');
+                        alert('تم حفظ ' + newRecords.length + ' اسم محليًا، ولم يتم تأكيد اكتمال رفعها إلى السحابة.\n' +
+                            'افتح «فحص المزامنة» لاحقًا؛ لا تحذف بيانات المتصفح.');
+                        return;
+                    }
+                    setAtayaImportStatus('اكتمل إرسال الدفعات. جارٍ التحقق من جميع الأسماء في Firebase...', 'pending');
+                    const verified = await window.fbVerifyBeneficiaryKeys?.(newIds);
+                    if (verified && verified.matching === newIds.length) {
+                        setAtayaImportStatus('تأكدت Firebase من ' + verified.matching + ' اسم جديد. إجمالي السحابة: ' +
+                            verified.total + '؛ المكرر المتروك: ' + skippedCount + '.', 'success');
+                        alert('تم التحقق من حفظ ' + verified.matching + ' اسم جديد في Firebase.\n' +
+                            'إجمالي المستفيدين في السحابة: ' + verified.total +
+                            '\nالمكرر الذي لم يُضف: ' + skippedCount);
+                    } else {
+                        setAtayaImportStatus('تم رفع الدفعات، لكن لم يكتمل التحقق السحابي من جميع الأسماء. ' +
+                            'لا تُعد الاستيراد؛ تحقق من حالة Firebase والعدد قبل أي إجراء.', 'pending');
+                        alert('لم يُؤكد اكتمال الاستيراد سحابيًا. احتفظ بالنسخة المحلية وأعد فحص المزامنة.');
+                    }
+                } catch (error) {
+                    console.error('Excel import failed:', error);
+                    setAtayaImportStatus('تعذر إتمام الاستيراد: ' + (error?.message || 'خطأ غير معروف') +
+                        '. إن كان الحفظ المحلي قد اكتمل، ستبقى الدفعات في انتظار المزامنة.', 'error');
+                    alert('تعذر إكمال الاستيراد. راجع حالة المزامنة ولا تُعد رفع الملف قبل التأكد من عدد الأسماء.');
+                } finally {
+                    atayaImportBusy = false;
+                    input.value = '';
+                    window.atayaOnBatchProgress = null;
+                    if (importButton) importButton.disabled = false;
                 }
+            };
+            reader.onerror = () => {
+                atayaImportBusy = false;
+                input.value = '';
+                if (importButton) importButton.disabled = false;
+                setAtayaImportStatus('تعذر قراءة الملف. لم يبدأ الاستيراد.', 'error');
             };
             reader.readAsArrayBuffer(file);
         }
-
 
         // Global field IDs are permanent. Order, labels, visibility and old names are metadata.
         let beneficiaryGlobalFields = [];
