@@ -152,6 +152,7 @@
                 <span id="cloudStatusBadge" class="text-[10px] bg-indigo-900/70 border border-indigo-400/40 px-2 py-0.5 rounded-full flex items-center gap-1">
                     <span class="inline-block w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span> جاري المزامنة...
                 </span>
+                <button type="button" onclick="showAtayaSyncStatus()" class="text-[10px] rounded border border-indigo-300/50 px-2 py-1 hover:bg-indigo-800" title="مقارنة عدد المستفيدين المحلي والسحابي">فحص المزامنة</button>
             </div>
             
             <div class="flex items-center gap-2 text-xs">
@@ -796,6 +797,9 @@
         let connected = false;
         let sending = false;
         let migrationChecked = false;
+        let cloudBeneficiariesCount = null;
+        let cloudSnapshotAt = null;
+        window.fbLastSyncError = '';
         window.fbPermissionRecords = {};
         const key = id => String(id).replace(/[.#$\[\]\/]/g, '_');
         const toArr = v => {
@@ -826,6 +830,15 @@
         }
         window.fbSignOut = () => signOut(auth);
         window.fbPendingChangesCount = () => offline.pendingCount();
+        window.fbSyncDiagnostics = () => ({
+            localCount: Array.isArray(beneficiaries) ? beneficiaries.length : 0,
+            cloudCount: cloudBeneficiariesCount,
+            cloudSnapshotAt,
+            pendingCount: offline.account ? offline.pendingCount() : 0,
+            connected, ready, sending,
+            lastError: window.fbLastSyncError || ''
+        });
+        window.fbRetryPending = () => flushPending();
         window.fbPermissionUpdate = updates => {
             if (!connected) return Promise.reject(new Error('يلزم الاتصال بالإنترنت لتعديل الصلاحيات'));
             return update(ref(db, ROOT), updates);
@@ -864,10 +877,12 @@
                     const changes = { ...batch.patch, lastUpdated: new Date().toISOString() };
                     await update(ref(db, ROOT), changes);
                     offline.acknowledge(batch);
+                    window.fbLastSyncError = '';
                     refreshBadge();
                 }
             } catch (error) {
                 console.error('تعذر رفع التعديلات المحلية، ستُعاد المحاولة:', error);
+                window.fbLastSyncError = String(error?.message || error);
                 window.fbSetBadge('error');
             } finally {
                 sending = false;
@@ -936,6 +951,9 @@
                 // as the new server baseline, to protect saved offline edits.
                 if (!connected) { refreshBadge(); return; }
                 const rootData = snapshot.val() || {};
+                cloudBeneficiariesCount = rootData.beneficiaries
+                    ? Object.values(rootData.beneficiaries).filter(Boolean).length : 0;
+                cloudSnapshotAt = new Date().toISOString();
                 window.setBeneficiaryGlobalFields && window.setBeneficiaryGlobalFields(rootData.beneficiaryFields || {});
                 offline.savePermissions(rootData.permissions || {});
                 window.permissionSnapshotLoaded = true;
@@ -1300,6 +1318,31 @@
             } else {
                 window.close();
                 setTimeout(() => { history.back(); }, 150);
+            }
+        }
+
+        function showAtayaSyncStatus() {
+            const stats = window.fbSyncDiagnostics?.();
+            if (!stats) return alert('بيانات المزامنة غير متاحة. جرّب إعادة فتح التطبيق بعد حفظ النسخة الاحتياطية.');
+            const lines = [
+                'المستفيدون على هذا الجهاز: ' + stats.localCount,
+                'المستفيدون المؤكد ظهورهم في آخر قراءة سحابية: ' +
+                    (stats.cloudCount === null ? 'لم تكتمل القراءة بعد' : stats.cloudCount),
+                'التعديلات التي تنتظر الرفع: ' + stats.pendingCount,
+                'حالة الإنترنت/Firebase: ' + (stats.connected ? 'متصل' : 'غير متصل'),
+                stats.sending ? 'يجري إرسال دفعات إلى السحابة الآن.' : '',
+                stats.lastError ? 'آخر خطأ مزامنة: ' + stats.lastError : '',
+                '',
+                'إذا كان العدد على الكمبيوتر أكبر من السحابة، احتفظ فورًا بنسخة احتياطية محلية من الكمبيوتر.',
+                'لا تستخدم استعادة النسخة على الجوال قبل اكتمال المزامنة.'
+            ].filter(Boolean);
+            if (stats.pendingCount > 0 && stats.connected) {
+                if (confirm(lines.join('\n') + '\n\nهل تريد إعادة محاولة رفع التعديلات المعلقة فقط؟')) {
+                    window.fbRetryPending?.();
+                    alert('بدأت محاولة رفع الدفعات المعلقة. راقب شارة المزامنة ثم افحص العدد مجددًا.');
+                }
+            } else {
+                alert(lines.join('\n'));
             }
         }
 
@@ -3395,7 +3438,7 @@
         const ATAYA_RELEASE = {
             version: '1.0.4',
             type: 'addition',
-            summary: 'إضافة البحث بالمنطقة للصرف الميداني وعرض 50 مستفيدًا في الصفحة لتحسين الاستجابة على الجوال، مع تحسين مزامنة الدفعات.'
+            summary: 'إضافة البحث بالمنطقة للصرف الميداني، وعرض 50 اسمًا لكل صفحة، وتحسين المزامنة على دفعات مع فحص العدد السحابي.'
         };
         window.showAtayaReleaseNotice = (manual = false) => {
             const notice = document.getElementById('atayaReleaseNotice');
