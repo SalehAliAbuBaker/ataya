@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>سجل العطايا | الإصدار 1.0.2</title>
+    <title>سجل العطايا | الإصدار 1.0.3</title>
 
     <!-- أيقونة التطبيق وإعدادات التثبيت على شاشة الجوال -->
     <link rel="icon" type="image/png" href="icon.png?v=2">
@@ -148,7 +148,7 @@
         <div class="max-w-4xl mx-auto flex flex-wrap justify-between items-center gap-2">
             <div class="flex items-center gap-2">
                 <img src="icon.png?v=2" alt="" onerror="this.style.display='none'" class="w-7 h-7 rounded-md bg-white/10 p-0.5 object-contain">
-                <div><h1 class="text-base md:text-lg font-bold">سجل العطايا</h1><button type="button" onclick="showAtayaReleaseNotice(true)" class="text-[10px] text-indigo-100 mt-0.5 hover:underline">الإصدار 1.0.2 · ما الجديد؟</button></div>
+                <div><h1 class="text-base md:text-lg font-bold">سجل العطايا</h1><button type="button" onclick="showAtayaReleaseNotice(true)" class="text-[10px] text-indigo-100 mt-0.5 hover:underline">الإصدار 1.0.3 · ما الجديد؟</button></div>
                 <span id="cloudStatusBadge" class="text-[10px] bg-indigo-900/70 border border-indigo-400/40 px-2 py-0.5 rounded-full flex items-center gap-1">
                     <span class="inline-block w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span> جاري المزامنة...
                 </span>
@@ -235,43 +235,32 @@
 
         <!-- نافذة النسخ الاحتياطي -->
         <div id="backupModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 hidden">
-            <div class="bg-white rounded-2xl max-w-md w-full p-5 shadow-2xl border border-slate-100">
+            <div class="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto p-5 shadow-2xl border border-slate-100">
                 <div class="flex justify-between items-center mb-3 border-b border-slate-100 pb-2">
-                    <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
-                        <span>☁️</span> النسخ الاحتياطي السحابي (Google Drive)
-                    </h3>
-                    <button type="button" onclick="closeBackupModal()" class="text-slate-400 hover:text-rose-600 text-xl font-bold">&times;</button>
+                    <h3 class="font-bold text-slate-800 text-sm">🗄️ النسخ الاحتياطي والاستعادة</h3>
+                    <button type="button" onclick="closeBackupModal()" aria-label="إغلاق" class="text-slate-400 hover:text-rose-600 text-xl font-bold">&times;</button>
                 </div>
-
-                <p class="text-xs text-slate-600 mb-4 leading-relaxed">
-                    يعمل سجل العطايا دون إنترنت بعد تسجيل الدخول أول مرة. تُحفظ عملياتك على هذا الجهاز، وتُرسل تلقائيًا إلى <b>Firebase</b> عند عودة الإنترنت. يمكنك أيضًا تنزيل نسخة احتياطية يدويًا أو رفعها إلى Google Drive عند الاتصال.
-                </p>
-
+                <p class="text-xs text-slate-600 mb-3 leading-relaxed">تشمل النسخة المستفيدين والعطايا وحركات الصرف وتعريفات الحقول الإضافية، ولا تحتوي على كلمات المرور. احتفظ بها في مكان آمن.</p>
                 <div class="space-y-3">
+                    <div class="p-3 bg-emerald-50 border border-emerald-200 rounded-xl">
+                        <strong class="block text-xs text-emerald-900 mb-2">1. نسخة احتياطية محلية — دون إنترنت</strong>
+                        <button type="button" onclick="exportBackupData()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-lg text-xs">📥 تنزيل نسخة احتياطية إلى الجهاز (JSON)</button>
+                        <p class="text-[11px] text-emerald-900 mt-2">تأكّد من وجود الملف في مجلد التنزيلات قبل أي استيراد كبير.</p>
+                    </div>
+                    <div class="p-3 bg-amber-50 border border-amber-200 rounded-xl">
+                        <strong class="block text-xs text-amber-900 mb-2">2. استعادة نسخة محلية — استبدال كامل</strong>
+                        <input type="file" id="restoreFileInput" accept=".json,application/json" class="hidden" onchange="importBackupData(event)">
+                        <button type="button" onclick="document.getElementById('restoreFileInput').click()" class="w-full bg-white hover:bg-amber-100 text-amber-900 border border-amber-300 font-semibold py-2.5 rounded-lg text-xs">📤 اختيار ملف نسخة للاستعادة</button>
+                        <p class="text-[11px] text-rose-700 mt-2">تنبيه: الاستعادة تستبدل البيانات، ولا تستورد أسماء Excel. نزّل نسخة احتياطية أولًا.</p>
+                    </div>
                     <div class="p-3 bg-indigo-50 border border-indigo-200 rounded-xl">
-                        <span class="block font-bold text-xs text-indigo-900 mb-1">1. تصدير وحفظ نسخة جديدة:</span>
-                        <button type="button" onclick="uploadBackupToGoogleDrive()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 rounded-lg text-xs shadow-sm flex items-center justify-center gap-1">
-                            ☁️ رفع النسخة مباشرة إلى Google Drive
-                        </button>
-                        <button type="button" onclick="exportBackupData()" class="w-full mt-2 bg-white hover:bg-indigo-50 text-indigo-700 border border-indigo-300 font-semibold py-2 rounded-lg text-xs flex items-center justify-center gap-1">
-                            📥 تنزيل نسخة JSON يدويًا
-                        </button>
-                        <label class="block mt-3 text-[11px] text-indigo-900 font-semibold">معرّف عميل Google (Client ID):</label>
+                        <strong class="block text-xs text-indigo-900 mb-2">3. النسخ السحابي (Google Drive)</strong>
+                        <button type="button" onclick="uploadBackupToGoogleDrive()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 rounded-lg text-xs">☁️ رفع نسخة إلى Google Drive</button>
+                        <label for="googleClientId" class="block mt-3 text-[11px] text-indigo-900 font-semibold">معرّف عميل Google (Client ID):</label>
                         <input id="googleClientId" type="text" placeholder="1234567890-xxxx.apps.googleusercontent.com" class="w-full mt-1 p-2 border border-indigo-200 rounded-lg text-[11px]" autocomplete="off">
                     </div>
-
-                    <div class="p-3 bg-emerald-50 border border-emerald-200 rounded-xl">
-                        <span class="block font-bold text-xs text-emerald-900 mb-1">2. استرجاع نسخة سابقة (استبدال كامل):</span>
-                        <input type="file" id="restoreFileInput" accept=".json" class="hidden" onchange="importBackupData(event)">
-                        <button type="button" onclick="document.getElementById('restoreFileInput').click()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 rounded-lg text-xs shadow-sm flex items-center justify-center gap-1">
-                            📤 استيراد واسترجاع البيانات
-                        </button>
-                    </div>
                 </div>
-
-                <button type="button" onclick="closeBackupModal()" class="w-full mt-4 bg-slate-100 hover:bg-slate-200 text-slate-700 py-2 rounded-lg text-xs font-semibold">
-                    إغلاق
-                </button>
+                <button type="button" onclick="closeBackupModal()" class="w-full mt-4 bg-slate-100 hover:bg-slate-200 text-slate-700 py-2 rounded-lg text-xs font-semibold">إغلاق</button>
             </div>
         </div>
 
@@ -329,7 +318,13 @@
 
                         <div class="md:col-span-2">
                             <label class="block text-xs font-semibold text-slate-600 mb-1">التصنيفات / الصفات (يمكن إضافة أكثر من صفة)</label>
-                            <input type="text" id="benCategory" placeholder="مثال: طالب، يتيم" class="w-full p-2 border border-slate-300 rounded-lg text-sm bg-white">
+                            <input type="hidden" id="benCategory">
+                             <div id="benCategoryPicker" class="relative rounded-lg border border-slate-300 bg-white p-2 focus-within:ring-2 focus-within:ring-indigo-500">
+                                 <div id="benCategoryChips" class="flex flex-wrap items-center gap-1.5 mb-1" aria-live="polite"></div>
+                                 <input type="text" id="benCategoryQuery" autocomplete="off" placeholder="ابحث عن صفة أو أضف صفة جديدة..." class="w-full p-1 text-sm outline-none bg-white" role="combobox" aria-autocomplete="list" aria-expanded="false">
+                                 <div id="benCategorySuggestions" class="ataya-category-menu" hidden role="listbox"></div>
+                             </div>
+                             <p class="mt-1 text-[11px] text-slate-500">اختر أكثر من صفة، مثل طالب ويتيم، ثم احذف أي صفة من بطاقتها عند الحاجة.</p>
                         </div>
                     </div>
 
@@ -739,7 +734,7 @@
 
     <div id="atayaReleaseNotice" class="hidden fixed inset-x-3 top-20 mx-auto max-w-md rounded-xl bg-white border border-emerald-200 p-4 shadow-2xl text-slate-800" style="z-index:85" role="status">
         <div class="flex items-start justify-between gap-3">
-            <div><strong id="atayaReleaseHeading" class="text-sm text-emerald-800">مستجدات الإصدار 1.0.2</strong><p id="atayaReleaseText" class="text-xs text-slate-600 mt-1 leading-relaxed"></p></div>
+            <div><strong id="atayaReleaseHeading" class="text-sm text-emerald-800">مستجدات الإصدار 1.0.3</strong><p id="atayaReleaseText" class="text-xs text-slate-600 mt-1 leading-relaxed"></p></div>
             <button type="button" onclick="closeAtayaReleaseNotice()" class="px-2 py-1 text-slate-500 font-bold" aria-label="إغلاق إشعار الإصدار">✕</button>
         </div>
     </div>
@@ -1423,23 +1418,31 @@
 
         function getFullBackupData() {
             return {
-                version: '1.7',
+                version: '1.0.3',
+                formatVersion: 2,
                 exportDate: new Date().toISOString(),
-                beneficiaries,
-                grants,
-                distributionLogs
+                beneficiaries, grants, distributionLogs,
+                beneficiaryFields: Object.fromEntries(beneficiaryGlobalFields.map(f => [f.id, {
+                    name: f.name, order: f.order, hidden: f.hidden === true, aliases: f.aliases || []
+                }]))
             };
         }
-
         function exportBackupData() {
-            const fullData = getFullBackupData();
-            const dataStr = "data:application/json;charset=utf-8," + encodeURIComponent(JSON.stringify(fullData, null, 2));
-            const anchor = document.createElement('a');
-            const dateStr = todayLocal();
-            anchor.href = dataStr;
-            anchor.download = `نسخة_احتياطية_العطايا_${dateStr}.json`;
-            anchor.click();
-            alert('تم تجهيز ملف النسخة الاحتياطية للتنزيل اليدوي.');
+            try {
+                const blob = makeBackupBlob();
+                const url = URL.createObjectURL(blob);
+                const anchor = document.createElement('a');
+                anchor.href = url;
+                anchor.download = `نسخة_احتياطية_العطايا_${todayLocal()}.json`;
+                document.body.appendChild(anchor);
+                anchor.click();
+                anchor.remove();
+                setTimeout(() => URL.revokeObjectURL(url), 60000);
+                alert('بدأ تنزيل النسخة المحلية. تحقق من وجود الملف في التنزيلات.');
+            } catch (error) {
+                console.error('Local backup export failed:', error);
+                alert('تعذر تجهيز النسخة الاحتياطية المحلية.');
+            }
         }
 
         function getGoogleClientId() {
@@ -1843,7 +1846,7 @@
                 phone: document.getElementById('benPhone').value.trim() || '-',
                 familyCount: document.getElementById('benFamilyCount').value || '-',
                 needPercent: needVal !== '' ? Number(needVal) : null,
-                category: normalizeBeneficiaryCategories(window.AtayaCategories?.canonicalCategory(document.getElementById('benCategory').value) || document.getElementById('benCategory').value),
+                category: normalizeBeneficiaryCategories((window.AtayaCategories?.commitEntry?.(), document.getElementById('benCategory').value)),
                 extraFields: editId
                     ? { ...(beneficiaries.find(b => String(b.id) === String(editId))?.extraFields || {}), ...readBeneficiaryExtraValues() }
                     : readBeneficiaryExtraValues()
@@ -1878,6 +1881,7 @@
             document.getElementById('benFamilyCount').value = ben.familyCount === '-' ? '' : ben.familyCount;
             document.getElementById('benNeedPercent').value = ben.needPercent !== null ? ben.needPercent : '';
             document.getElementById('benCategory').value = ben.category;
+            window.AtayaCategories?.syncEntry?.();
             renderBeneficiaryExtraInputs(ben.extraFields || {});
 
             document.getElementById('benFormTitle').innerText = 'تعديل بيانات مستفيد';
@@ -1890,6 +1894,7 @@
 
         function resetBenForm() {
             document.getElementById('benForm').reset();
+            window.AtayaCategories?.syncEntry?.();
             renderBeneficiaryExtraInputs({});
             document.getElementById('editBenId').value = '';
             document.getElementById('benFormTitle').innerText = 'إضافة مستفيد جديد';
@@ -3275,9 +3280,9 @@
         // Advance ATAYA_RELEASE.version with each published change.
         // For a correction-only release choose type 'correction'; the message is standardized.
         const ATAYA_RELEASE = {
-            version: '1.0.2',
+            version: '1.0.3',
             type: 'addition',
-            summary: 'دعم أكثر من صفة للمستفيد الواحد والبحث والتصفية بكل صفة منفردة، مع توافق Excel.'
+            summary: 'إضافة نسخة احتياطية محلية واضحة مع تعريفات الحقول، واختيار تصنيفات متعددة ببطاقات ذكية.'
         };
         window.showAtayaReleaseNotice = (manual = false) => {
             const notice = document.getElementById('atayaReleaseNotice');
@@ -3299,8 +3304,8 @@
         updateCategoryDropdowns();
         setupBackNavigationGuard();
     </script>
-    <script src="./category-search.js?v=2"></script>
-    <script src="./voice-input.js?v=1"></script>
+    <script src="./category-search.js?v=3"></script>
+    <script src="./voice-input.js?v=2"></script>
 
     <!-- WhatsApp feedback: opens a prefilled message; user confirms sending in WhatsApp. -->
     <div id="atayaContactModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/60 p-4" role="dialog" aria-modal="true" aria-labelledby="atayaContactTitle" onclick="if(event.target===this) closeAtayaContact()">
