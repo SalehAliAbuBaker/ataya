@@ -957,6 +957,7 @@
             const savedPermissions = offline.cachedPermissions();
             window.permissionSnapshotLoaded = savedPermissions.verified === true;
             window.setPermissionRecords && window.setPermissionRecords(savedPermissions.records || {});
+            window.restoreBeneficiaryGlobalFields && window.restoreBeneficiaryGlobalFields();
             window.offlineRestoreForUser && window.offlineRestoreForUser();
             const el = document.getElementById('displayUserName');
             if (el) el.innerText = loggedUser;
@@ -1604,22 +1605,49 @@
             reader.readAsArrayBuffer(file);
         }
 
-        // Shared custom fields, identified by stable Firebase keys.
+
+        // Global field IDs are permanent. Order, labels, visibility and old names are metadata.
         let beneficiaryGlobalFields = [];
-        window.setBeneficiaryGlobalFields = fields => {
+        let beneficiaryFieldsSaving = false;
+        const fieldCacheKey = () => 'ataya:beneficiary-fields:' + (window.currentUserUid || 'anonymous');
+        function isBeneficiaryFieldNameAvailable(name, exceptId = null) {
+            const norm = normalizeArabic(name);
+            const reserved = ['اسم المستفيد', 'المنطقة', 'رقم الهاتف', 'عدد أفراد الأسرة', 'نسبة الاحتياج', 'الفئة'];
+            return Boolean(norm) && !reserved.some(s => normalizeArabic(s) === norm) &&
+                !beneficiaryGlobalFields.some(f => f.id !== exceptId &&
+                    [f.name, ...(f.aliases || [])].some(s => normalizeArabic(s) === norm));
+        }
+        window.setBeneficiaryGlobalFields = (fields, cache = true) => {
+            const previous = readBeneficiaryExtraValues();
             beneficiaryGlobalFields = Object.entries(fields || {}).filter(([, f]) => f && typeof f.name === 'string')
-                .map(([id, f]) => ({id, name: f.name.trim()})).filter(f => f.name);
-            renderBeneficiaryExtraInputs();
-            const button = document.getElementById('addBeneficiaryFieldBtn');
-            if (button) button.classList.toggle('hidden', !permissionState.admin);
+                .map(([id, f], index) => ({
+                    id, name: f.name.trim(),
+                    order: f.order === undefined || f.order === null || f.order === '' || !Number.isFinite(Number(f.order))
+                        ? index : Number(f.order),
+                    hidden: f.hidden === true,
+                    aliases: Array.isArray(f.aliases) ? f.aliases.filter(n => typeof n === 'string' && n.trim()) : []
+                })).filter(f => f.name)
+                .sort((a, b) => a.order - b.order || a.id.localeCompare(b.id));
+            if (cache && window.currentUserUid) {
+                try { localStorage.setItem(fieldCacheKey(), JSON.stringify(fields || {})); }
+                catch (e) { console.warn('Field schema cache unavailable', e); }
+            }
+            renderBeneficiaryExtraInputs(previous);
+            renderBeneficiaryFieldManager();
             renderBeneficiaries();
+        };
+        window.restoreBeneficiaryGlobalFields = () => {
+            try {
+                const saved = localStorage.getItem(fieldCacheKey());
+                if (saved) window.setBeneficiaryGlobalFields(JSON.parse(saved), false);
+            } catch(e) { console.warn('Field schema restore unavailable', e); }
         };
         function renderBeneficiaryExtraInputs(values) {
             const container = document.getElementById('beneficiaryExtraFields');
             if (!container) return;
             const previous = values || readBeneficiaryExtraValues();
             container.replaceChildren();
-            for (const field of beneficiaryGlobalFields) {
+            for (const field of beneficiaryGlobalFields.filter(f => !f.hidden)) {
                 const wrap = document.createElement('div');
                 const label = document.createElement('label');
                 label.className = 'block text-xs font-semibold text-slate-700 mb-1';
@@ -1629,7 +1657,7 @@
                 input.maxLength = 250;
                 input.dataset.extraFieldId = field.id;
                 input.className = 'w-full p-2 border border-slate-300 rounded-lg text-sm';
-                input.value = previous[field.id] || '';
+                input.value = previous[field.id] ?? '';
                 wrap.append(label, input);
                 container.appendChild(wrap);
             }
@@ -1638,23 +1666,100 @@
             return Object.fromEntries([...document.querySelectorAll('#beneficiaryExtraFields [data-extra-field-id]')]
                 .map(input => [input.dataset.extraFieldId, input.value.trim()]));
         }
+        function toggleBeneficiaryFieldsManager() {
+            if (!permissionState.admin) return alert('إدارة الحقول متاحة للمدير فقط.');
+            document.getElementById('beneficiaryFieldManager')?.classList.toggle('hidden');
+            renderBeneficiaryFieldManager();
+        }
+        function renderBeneficiaryFieldManager() {
+            const list = document.getElementById('beneficiaryFieldManagerList');
+            if (!list) return;
+            list.replaceChildren();
+            if (!permissionState.admin) return;
+            if (!beneficiaryGlobalFields.length) {
+                const p = document.createElement('p');
+                p.className = 'text-xs text-slate-500 py-2';
+                p.textContent = 'لا توجد حقول. اضغط «إضافة حقل» لإنشاء أول حقل.';
+                list.appendChild(p);
+            }
+            function addBtn(text, fn, disabled) {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.textContent = text;
+                btn.disabled = disabled || beneficiaryFieldsSaving;
+                btn.className = 'border border-slate-300 bg-white rounded px-2 py-1 text-xs disabled:opacity-40';
+                btn.addEventListener('click', fn);
+                return btn;
+            }
+            beneficiaryGlobalFields.forEach((f, i) => {
+                const row = document.createElement('div');
+                row.className = 'flex flex-wrap items-center gap-1.5 border border-slate-200 rounded-lg p-2 text-xs';
+                const name = document.createElement('span');
+                name.className = 'flex-1 min-w-28 font-semibold text-slate-800';
+                name.textContent = (i + 1) + '. ' + f.name + (f.hidden ? ' (مخفي)' : '');
+                row.append(name,
+                    addBtn('↑', () => moveBeneficiaryGlobalField(f.id, -1), i === 0),
+                    addBtn('↓', () => moveBeneficiaryGlobalField(f.id, 1), i === beneficiaryGlobalFields.length - 1),
+                    addBtn('تسمية', () => renameBeneficiaryGlobalField(f.id), false),
+                    addBtn(f.hidden ? 'إظهار' : 'إخفاء', () => setBeneficiaryGlobalFieldHidden(f.id, !f.hidden), false));
+                list.appendChild(row);
+            });
+        }
+        async function saveBeneficiaryFieldSettings(patch) {
+            if (!permissionState.admin || beneficiaryFieldsSaving) return;
+            beneficiaryFieldsSaving = true;
+            renderBeneficiaryFieldManager();
+            try {
+                await window.fbPermissionUpdate(patch);
+            } catch(e) {
+                console.error('Field schema update failed', e);
+                alert('تعذر حفظ إعدادات الحقول. تحقق من الاتصال والصلاحيات.');
+            } finally {
+                beneficiaryFieldsSaving = false;
+                renderBeneficiaryFieldManager();
+            }
+        }
+        async function moveBeneficiaryGlobalField(id, delta) {
+            const index = beneficiaryGlobalFields.findIndex(f => f.id === id);
+            const next = index + delta;
+            if (index < 0 || next < 0 || next >= beneficiaryGlobalFields.length) return;
+            const updated = [...beneficiaryGlobalFields];
+            [updated[index], updated[next]] = [updated[next], updated[index]];
+            const patch = {};
+            updated.forEach((f, i) => { patch['beneficiaryFields/' + f.id + '/order'] = i; });
+            await saveBeneficiaryFieldSettings(patch);
+        }
+        async function renameBeneficiaryGlobalField(id) {
+            const field = beneficiaryGlobalFields.find(f => f.id === id);
+            if (!field || !permissionState.admin) return;
+            const name = prompt('الاسم الجديد للحقل:', field.name);
+            if (name === null) return;
+            const trimmed = name.trim();
+            if (!trimmed || trimmed.length > 70) return alert('اكتب اسم الحقل من 1 إلى 70 حرفًا.');
+            if (trimmed === field.name) return;
+            if (!isBeneficiaryFieldNameAvailable(trimmed, id)) return alert('اسم الحقل مستخدم بالفعل.');
+            const aliases = [...new Set([...(field.aliases || []), field.name])]
+                .filter(n => normalizeArabic(n) !== normalizeArabic(trimmed));
+            await saveBeneficiaryFieldSettings({
+                ['beneficiaryFields/' + id + '/name']: trimmed,
+                ['beneficiaryFields/' + id + '/aliases']: aliases
+            });
+        }
+        async function setBeneficiaryGlobalFieldHidden(id, hidden) {
+            if (!beneficiaryGlobalFields.some(f => f.id === id)) return;
+            await saveBeneficiaryFieldSettings({['beneficiaryFields/' + id + '/hidden']: hidden});
+        }
         async function addBeneficiaryGlobalField() {
-            if (!permissionState.admin) return alert('إضافة الحقول العامة متاحة لمدير الصلاحيات فقط.');
+            if (!permissionState.admin) return alert('إضافة الحقول العامة متاحة للمدير فقط.');
             const name = prompt('اكتب اسم الحقل الجديد الذي سيظهر لجميع المستفيدين وفي نموذج Excel:');
             if (name === null) return;
             const trimmed = name.trim();
             if (!trimmed || trimmed.length > 70) return alert('اكتب اسم حقل من 1 إلى 70 حرفًا.');
-            const reserved = ['اسم المستفيد', 'المنطقة', 'رقم الهاتف', 'عدد أفراد الأسرة', 'نسبة الاحتياج', 'الفئة'];
-            if (reserved.includes(trimmed) || beneficiaryGlobalFields.some(f => f.name === trimmed))
-                return alert('اسم الحقل مستخدم بالفعل؛ اختر اسمًا آخر.');
+            if (!isBeneficiaryFieldNameAvailable(trimmed)) return alert('اسم الحقل مستخدم بالفعل.');
             const id = 'field_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
-            try {
-                await window.fbPermissionUpdate({['beneficiaryFields/' + id]: {name: trimmed}});
-                alert('تمت إضافة الحقل العام. سيظهر ضمن بيانات المستفيدين ونموذج Excel.');
-            } catch (error) {
-                console.error('Unable to add beneficiary field', error);
-                alert('تعذر حفظ الحقل العام في Firebase. تحقق من الاتصال والصلاحيات.');
-            }
+            const order = beneficiaryGlobalFields.length
+                ? Math.max(...beneficiaryGlobalFields.map(f => f.order)) + 1 : 0;
+            await saveBeneficiaryFieldSettings({['beneficiaryFields/' + id]: {name: trimmed, order, hidden: false}});
         }
 
         // ================= إدارة المستفيدين =================
@@ -1678,7 +1783,9 @@
                 familyCount: document.getElementById('benFamilyCount').value || '-',
                 needPercent: needVal !== '' ? Number(needVal) : null,
                 category: window.AtayaCategories?.canonicalCategory(document.getElementById('benCategory').value) || 'عام',
-                extraFields: readBeneficiaryExtraValues()
+                extraFields: editId
+                    ? { ...(beneficiaries.find(b => String(b.id) === String(editId))?.extraFields || {}), ...readBeneficiaryExtraValues() }
+                    : readBeneficiaryExtraValues()
             };
 
             if (editId) {
@@ -1783,7 +1890,7 @@
                         <div class="text-slate-500 mt-0.5 flex flex-wrap gap-2">
                             <span>المنطقة: <b>${b.area}</b></span>
                             <span>الأسرة: <b>${b.familyCount}</b></span>
-                            ${beneficiaryGlobalFields.map(f => b.extraFields?.[f.id] ? '<span>' + escHtml(f.name) + ': <b>' + escHtml(String(b.extraFields[f.id])) + '</b></span>' : '').join('')}
+                            ${beneficiaryGlobalFields.filter(f => !f.hidden).map(f => b.extraFields?.[f.id] ? '<span>' + escHtml(f.name) + ': <b>' + escHtml(String(b.extraFields[f.id])) + '</b></span>' : '').join('')}
                             ${b.needPercent !== null && b.needPercent !== undefined ? `<span class="bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-bold">الاحتياج: ${b.needPercent}%</span>` : ''}
                         </div>
                     </div>
