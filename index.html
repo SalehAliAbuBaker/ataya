@@ -1504,15 +1504,34 @@
             reader.readAsText(file);
         }
 
-        // Download the same six-column layout consumed by importExcel().
-        function downloadExcelTemplate() {
-            if (typeof XLSX === 'undefined') return alert('مكتبة Excel غير متاحة حاليًا. تحقق من الاتصال بالإنترنت.');
-            const columns = ['اسم المستفيد', 'المنطقة', 'رقم الهاتف', 'عدد أفراد الأسرة', 'نسبة الاحتياج', 'الفئة', ...beneficiaryGlobalFields.map(f => f.name)];
-            const ws = XLSX.utils.aoa_to_sheet([columns]);
-            ws['!cols'] = columns.map((column, index) => ({wch: index === 0 ? 30 : Math.max(18, Math.min(32, column.length + 8))}));
+
+        // Excel columns follow the same order as visible beneficiary fields.
+        const BENEFICIARY_BASE_COLUMNS = ['اسم المستفيد', 'المنطقة', 'رقم الهاتف', 'عدد أفراد الأسرة', 'نسبة الاحتياج', 'الفئة'];
+        function buildBeneficiariesExcel(includeNames) {
+            const activeFields = beneficiaryGlobalFields.filter(f => !f.hidden);
+            const columns = [...BENEFICIARY_BASE_COLUMNS, ...activeFields.map(f => f.name)];
+            const records = includeNames ? beneficiaries.map(b => [
+                b.name || '', b.area || '', b.phone || '', b.familyCount ?? '',
+                b.needPercent ?? '', b.category || '',
+                ...activeFields.map(f => b.extraFields?.[f.id] ?? '')
+            ]) : [];
+            const ws = XLSX.utils.aoa_to_sheet([columns, ...records]);
+            ws['!cols'] = columns.map((c, i) => ({wch: i === 0 ? 32 : Math.max(18, Math.min(35, c.length + 8))}));
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, 'المستفيدون');
-            XLSX.writeFile(wb, 'نموذج_رفع_المستفيدين_سجل_العطايا.xlsx');
+            // Second sheet keeps persistent field IDs for reliable imports after renaming.
+            const metadata = [['معرف الحقل', 'عنوان العمود'], ...activeFields.map(f => [f.id, f.name])];
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(metadata), 'تعريف الحقول');
+            return wb;
+        }
+        function downloadExcelTemplate() {
+            if (typeof XLSX === 'undefined') return alert('مكتبة Excel غير متاحة حاليًا. تحقق من الاتصال بالإنترنت.');
+            XLSX.writeFile(buildBeneficiariesExcel(false), 'نموذج_رفع_المستفيدين_سجل_العطايا.xlsx');
+        }
+        function exportBeneficiariesExcel() {
+            if (!requirePermission('reports')) return;
+            if (typeof XLSX === 'undefined') return alert('مكتبة Excel غير متاحة حاليًا. تحقق من الاتصال بالإنترنت.');
+            XLSX.writeFile(buildBeneficiariesExcel(true), 'أسماء_المستفيدين_سجل_العطايا.xlsx');
         }
 
         // ================= استيراد الإكسل =================
@@ -1535,7 +1554,8 @@
                     let startRow = 0;
 
                     const headerRow = rows[0].map(cell => (cell ? cell.toString().trim() : ''));
-                    const foundName = headerRow.findIndex(h => h.includes('اسم') || h.toLowerCase() === 'name');
+                    const exactName = headerRow.findIndex(h => normalizeArabic(h) === normalizeArabic('اسم المستفيد'));
+                    const foundName = exactName >= 0 ? exactName : headerRow.findIndex(h => h.includes('اسم') || h.toLowerCase() === 'name');
                     if (foundName !== -1) {
                         startRow = 1;
                         nameIdx = foundName;
@@ -1551,7 +1571,26 @@
                         if (foundCat !== -1) catIdx = foundCat;
                     }
 
-                    const extraColumnIndexes = beneficiaryGlobalFields.map(f => ({id: f.id, index: startRow ? headerRow.findIndex(h => h === f.name) : -1}));
+                    // Match columns by stable ID metadata, current name, or prior field names.
+                    const metadataSheet = workbook.Sheets['تعريف الحقول'];
+                    const metadataRows = metadataSheet
+                        ? XLSX.utils.sheet_to_json(metadataSheet, {header: 1, defval: ''}).slice(1) : [];
+                    const exportedNames = new Map(metadataRows.map(row =>
+                        [String(row[0] || '').trim(), String(row[1] || '').trim()]));
+                    const extraColumnIndexes = beneficiaryGlobalFields.map(f => {
+                        const aliases = [f.name, ...(f.aliases || []), exportedNames.get(f.id)]
+                            .filter(Boolean).map(normalizeArabic);
+                        return {id: f.id, index: startRow ? headerRow.findIndex(h => aliases.includes(normalizeArabic(h))) : -1};
+                    });
+                    if (startRow) {
+                        const consumed = new Set([nameIdx, areaIdx, phoneIdx, famIdx, needIdx, catIdx,
+                            ...extraColumnIndexes.map(f => f.index)].filter(i => i >= 0));
+                        const otherColumns = headerRow.filter((value, i) => value && !consumed.has(i));
+                        if (otherColumns.length && !confirm('توجد أعمدة غير معرفة: ' +
+                            otherColumns.slice(0, 8).join('، ') +
+                            '\nلن يتم استيرادها. أضفها من إدارة الحقول أولًا للاحتفاظ بها. هل تريد الاستمرار؟')) return;
+                    }
+                    const knownNames = new Set(beneficiaries.map(b => normalizeArabic(b.name)));
                     let addedCount = 0;
                     let skippedCount = 0;
 
@@ -1563,8 +1602,7 @@
                         if (!rawName || rawName === 'الاسم' || rawName === 'اسم المستفيد') continue;
 
                         const normNew = normalizeArabic(rawName);
-                        const isDuplicate = beneficiaries.some(b => normalizeArabic(b.name) === normNew);
-                        if (isDuplicate) {
+                        if (knownNames.has(normNew)) {
                             skippedCount++;
                             continue;
                         }
@@ -1591,6 +1629,7 @@
                             category: catVal,
                             extraFields: Object.fromEntries(extraColumnIndexes.filter(f => f.index >= 0).map(f => [f.id, String(row[f.index] ?? '').trim()]))
                         });
+                        knownNames.add(normNew);
                         addedCount++;
                     }
 
